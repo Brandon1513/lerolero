@@ -89,6 +89,20 @@
                             </select>
                             <x-input-error :messages="$errors->get('asignado_a')" class="mt-2" />
                         </div>
+                        <!-- Nivel de Precio -->
+                        <div class="mb-4">
+                            <x-input-label for="nivel_precio_id" value="Nivel de Precio" />
+                            <select name="nivel_precio_id" id="nivel_precio_id" class="block w-full mt-1 rounded-md border-gray-300 shadow-sm">
+                                <option value="">-- Selecciona un nivel --</option>
+                                @foreach ($niveles as $nivel)
+                                    <option value="{{ $nivel->id }}" {{ old('nivel_precio_id', $cliente->nivel_precio_id) == $nivel->id ? 'selected' : '' }}>
+                                        {{ $nivel->nombre }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <x-input-error :messages="$errors->get('nivel_precio_id')" class="mt-2" />
+                        </div>
+
 
                         <!-- Botón -->
                         <div class="flex justify-end mt-4">

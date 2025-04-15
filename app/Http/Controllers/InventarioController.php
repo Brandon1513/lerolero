@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Almacen;
+use App\Models\Producto;
+use App\Models\Inventario;
 use Illuminate\Http\Request;
 
 class InventarioController extends Controller
@@ -9,11 +12,24 @@ class InventarioController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
-    }
+        $query = Inventario::with(['producto', 'almacen']);
 
+        if ($request->filled('producto_id')) {
+            $query->where('producto_id', $request->producto_id);
+        }
+
+        if ($request->filled('almacen_id')) {
+            $query->where('almacen_id', $request->almacen_id);
+        }
+
+        $inventarios = $query->paginate(10)->withQueryString();
+        $almacenes = Almacen::orderBy('nombre')->get();
+        $productos = Producto::orderBy('nombre')->get();
+
+        return view('inventario.index', compact('inventarios', 'almacenes', 'productos'));
+    }
     /**
      * Show the form for creating a new resource.
      */

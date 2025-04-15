@@ -41,13 +41,23 @@
                             </x-dropdown-link>
                         @endif
                         <!-- Opción "Gestionar periodos" visible para administrador y recursos_humanos -->
-                            <x-dropdown-link :href="route('clientes.index')" class="text-gray-700 hover:bg-gray-200">
-                                {{ __('Gestionar Jefes') }}
+                            <x-dropdown-link :href="route('niveles-precio.index')" class="text-gray-700 hover:bg-gray-200">
+                                {{ __('Gestionar Niveles de precio') }}
                             </x-dropdown-link>
                         <!-- Opción "Gestionar Usuarios" solo visible para administrador -->
                         @if (Auth::user()->hasRole('administrador'))
-                            <x-dropdown-link :href="route('clientes.index')" class="text-gray-700 hover:bg-gray-200">
-                                {{ __('Gestionar Jefes') }}
+                            <x-dropdown-link :href="route('unidades.index')" class="text-gray-700 hover:bg-gray-200">
+                                {{ __('Gestionar Unidades') }}
+                            </x-dropdown-link>
+                         @endif
+                         @if (Auth::user()->hasRole('administrador'))
+                            <x-dropdown-link :href="route('productos.index')" class="text-gray-700 hover:bg-gray-200">
+                                {{ __('Gestionar Productos') }}
+                            </x-dropdown-link>
+                         @endif
+                         @if (Auth::user()->hasRole('administrador'))
+                            <x-dropdown-link :href="route('categorias.index')" class="text-gray-700 hover:bg-gray-200">
+                                {{ __('Gestionar categorias') }}
                             </x-dropdown-link>
                          @endif
                     </x-slot>

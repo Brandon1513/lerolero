@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Cliente;
 use App\Models\User;
+use App\Models\Cliente;
+use App\Models\NivelPrecio;
+use Illuminate\Http\Request;
 
 class ClienteController extends Controller
 {
@@ -29,7 +30,8 @@ class ClienteController extends Controller
         $clientes->where('asignado_a', $request->asignado_a);
     }
 
-    $clientes = $clientes->with('asignadoA')->paginate(10)->withQueryString();
+    $clientes = $clientes->with(['asignadoA', 'nivelPrecio'])->paginate(10)->withQueryString();
+
 
     // Lista de vendedores para el filtro
     $vendedores = \App\Models\User::role('vendedor')->get();
@@ -40,12 +42,12 @@ class ClienteController extends Controller
 
 
 
-    public function create()
-    {
-        $vendedores = User::role('vendedor')->get();
-        return view('clientes.create', compact('vendedores'));
-        
-    }
+public function create()
+{
+    $vendedores = User::role('vendedor')->get();
+    $niveles = NivelPrecio::all();
+    return view('clientes.create', compact('vendedores', 'niveles'));
+}
 
     public function store(Request $request)
     {
@@ -53,7 +55,9 @@ class ClienteController extends Controller
             'nombre' => 'required|string|max:255',
             'direccion' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:20',
-            'asignado_a' => 'nullable|exists:users,id'
+            'asignado_a' => 'nullable|exists:users,id',
+            'nivel_precio_id' => 'nullable|exists:niveles_precio,id',
+
         ]);
 
         Cliente::create($request->all());
@@ -64,7 +68,8 @@ class ClienteController extends Controller
     public function edit(Cliente $cliente)
     {
         $vendedores = User::role('vendedor')->get();
-        return view('clientes.edit', compact('cliente', 'vendedores'));
+        $niveles = NivelPrecio::all();
+        return view('clientes.edit', compact('cliente', 'vendedores', 'niveles'));
     }
 
     public function update(Request $request, Cliente $cliente)
@@ -73,7 +78,9 @@ class ClienteController extends Controller
             'nombre' => 'required|string|max:255',
             'direccion' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:20',
-            'asignado_a' => 'nullable|exists:users,id'
+            'asignado_a' => 'nullable|exists:users,id',
+            'nivel_precio_id' => 'nullable|exists:niveles_precio,id',
+
         ]);
 
         $cliente->update($request->all());

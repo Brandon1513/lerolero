@@ -61,4 +61,15 @@ class CategoriaController extends Controller
 
         return redirect()->route('categorias.index')->with('success', 'Categoría eliminada correctamente.');
     }
+
+    //activar/desactivar una categoría
+    public function toggle(Categoria $categoria)
+    {
+    $categoria->activo = !$categoria->activo;
+    $categoria->save();
+
+    $mensaje = $categoria->activo ? 'Categoría activada correctamente.' : 'Categoría inactivada correctamente.';
+    return redirect()->route('categorias.index')->with('success', $mensaje);
+    }
+
 }

@@ -89,6 +89,7 @@
                                     <th class="px-4 py-2 border">Dirección</th>
                                     <th class="px-4 py-2 border">Teléfono</th>
                                     <th class="px-4 py-2 border">Asignado a</th>
+                                    <th class="px-4 py-2 border">Nivel de Precio</th>
                                     <th class="px-4 py-2 text-center border">Acciones</th>
                                 </tr>
                             </thead>
@@ -115,6 +116,9 @@
                                         <!-- Asignado a -->
                                         <td class="px-4 py-2 border">
                                             {{ $cliente->asignadoA ? $cliente->asignadoA->name : 'No asignado' }}
+                                        </td>
+                                        <td class="px-4 py-2 border">
+                                            {{ $cliente->nivelPrecio ? $cliente->nivelPrecio->nombre : 'No asignado' }}
                                         </td>
 
                                         <!-- Acciones -->

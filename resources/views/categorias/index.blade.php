@@ -51,6 +51,15 @@
                                                         Eliminar
                                                     </button>
                                                 </form>
+                                                <form action="{{ route('categorias.toggle', $categoria) }}" method="POST">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <button type="submit"
+                                                        class="px-3 py-1 rounded-md text-white {{ $categoria->activo ? 'bg-gray-500 hover:bg-gray-700' : 'bg-green-500 hover:bg-green-700' }}">
+                                                        {{ $categoria->activo ? 'Inactivar' : 'Activar' }}
+                                                    </button>
+                                                </form>
+                                                
                                             </div>
                                         </td>
                                     </tr>
