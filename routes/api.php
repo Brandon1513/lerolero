@@ -36,3 +36,17 @@ Route::middleware('auth:sanctum')->post('/update-password', function (Request $r
 
     return response()->json(['message' => 'Contraseña actualizada. Token eliminado.']);
 });
+
+//cliente asignado a vendedor
+
+Route::middleware('auth:sanctum')->get('/clientes-asignados', function (Request $request) {
+    return $request->user()->clientes; // Suponiendo que tienes la relación
+});
+Route::middleware('auth:sanctum')->get('/clientes-dia', [ClienteMovilController::class, 'delDia']);
+
+Route::middleware('auth:sanctum')->get('/clientes/{cliente}/ventas', function (\App\Models\Cliente $cliente) {
+    return $cliente->ventas()
+        ->with(['cliente', 'detalles.producto']) // Asegúrate de incluir la relación 'cliente'
+        ->latest()
+        ->get();
+});

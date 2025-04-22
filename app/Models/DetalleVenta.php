@@ -12,6 +12,7 @@ class DetalleVenta extends Model
         'cantidad',
         'precio_unitario',
         'subtotal',
+        'almacen_id', // Nuevo campo para llevar control del almacén
     ];
 
     public function venta()
@@ -22,5 +23,10 @@ class DetalleVenta extends Model
     public function producto()
     {
         return $this->belongsTo(Producto::class);
+    }
+
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class);
     }
 }

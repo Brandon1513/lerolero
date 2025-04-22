@@ -17,52 +17,110 @@
                     </x-nav-link>
                
             
-            <div class="relative">
-                <x-dropdown align="left">
-                    <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 transition duration-150 ease-in-out bg-transparent border border-transparent rounded-md hover:text-gray-300 focus:outline-none">
-                            <div>{{ __('Administración') }}</div>
-                            <div class="ms-1">
-                                <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                        </button>
-                    </x-slot>
+                    <div class="relative">
+                        <x-dropdown align="left">
+                            <x-slot name="trigger">
+                                <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 transition duration-150 ease-in-out bg-transparent border border-transparent rounded-md hover:text-gray-300 focus:outline-none">
+                                    <div>{{ __('Administración') }}</div>
+                                    <div class="ms-1">
+                                        <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </button>
+                            </x-slot>
 
-                    <x-slot name="content">
-                        <!-- Gestionar Jefes -->
-                        @if (Auth::user()->hasRole('administrador'))
-                            <x-dropdown-link :href="route('clientes.index')" class="text-gray-700 hover:bg-gray-200">
-                                {{ __('Gestionar Clientes') }}
-                            </x-dropdown-link>
-                            <x-dropdown-link :href="route('vendedores.index')" class="text-gray-700 hover:bg-gray-200">
-                                {{ __('Gestionar Vendedores') }}
-                            </x-dropdown-link>
-                        @endif
-                        <!-- Opción "Gestionar periodos" visible para administrador y recursos_humanos -->
-                            <x-dropdown-link :href="route('niveles-precio.index')" class="text-gray-700 hover:bg-gray-200">
-                                {{ __('Gestionar Niveles de precio') }}
-                            </x-dropdown-link>
-                        <!-- Opción "Gestionar Usuarios" solo visible para administrador -->
-                        @if (Auth::user()->hasRole('administrador'))
-                            <x-dropdown-link :href="route('unidades.index')" class="text-gray-700 hover:bg-gray-200">
-                                {{ __('Gestionar Unidades') }}
-                            </x-dropdown-link>
-                         @endif
-                         @if (Auth::user()->hasRole('administrador'))
-                            <x-dropdown-link :href="route('productos.index')" class="text-gray-700 hover:bg-gray-200">
-                                {{ __('Gestionar Productos') }}
-                            </x-dropdown-link>
-                         @endif
-                         @if (Auth::user()->hasRole('administrador'))
-                            <x-dropdown-link :href="route('categorias.index')" class="text-gray-700 hover:bg-gray-200">
-                                {{ __('Gestionar categorias') }}
-                            </x-dropdown-link>
-                         @endif
-                    </x-slot>
-                </x-dropdown>
-            </div>
+                            <x-slot name="content">
+                                <!-- Gestionar Jefes -->
+                                @if (Auth::user()->hasRole('administrador'))
+                                    <x-dropdown-link :href="route('clientes.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Gestionar Clientes') }}
+                                    </x-dropdown-link>
+                                    <x-dropdown-link :href="route('vendedores.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Gestionar Vendedores') }}
+                                    </x-dropdown-link>
+                                @endif
+                                <!-- Opción "Gestionar periodos" visible para administrador y recursos_humanos -->
+                                    <x-dropdown-link :href="route('niveles-precio.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Gestionar Niveles de precio') }}
+                                    </x-dropdown-link>
+                                <!-- Opción "Gestionar Usuarios" solo visible para administrador -->
+                                @if (Auth::user()->hasRole('administrador'))
+                                    <x-dropdown-link :href="route('unidades.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Gestionar Unidades') }}
+                                    </x-dropdown-link>
+                                @endif
+                                @if (Auth::user()->hasRole('administrador'))
+                                    <x-dropdown-link :href="route('productos.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Gestionar Productos') }}
+                                    </x-dropdown-link>
+                                @endif
+                                @if (Auth::user()->hasRole('administrador'))
+                                    <x-dropdown-link :href="route('categorias.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Gestionar categorias') }}
+                                    </x-dropdown-link>
+                                    
+                                @endif
+                            </x-slot>
+                        </x-dropdown>
+                    </div>
+                    <!-- Menú Almacenes -->
+                    <div class="relative">
+                        <x-dropdown align="left">
+                            <x-slot name="trigger">
+                                <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 transition duration-150 ease-in-out bg-transparent border border-transparent rounded-md hover:text-gray-300 focus:outline-none">
+                                    <div>{{ __('Almacenes') }}</div>
+                                    <div class="ms-1">
+                                        <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </button>
+                            </x-slot>
+
+                            <x-slot name="content">
+                                @if (Auth::user()->hasRole('administrador'))
+                                    <x-dropdown-link :href="route('almacenes.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Ver Almacenes') }}
+                                    </x-dropdown-link>
+                                    <x-dropdown-link :href="route('inventario.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Ver Inventario') }}
+                                    </x-dropdown-link>
+                                    <x-dropdown-link :href="route('traslados.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Traslados de Inventario') }}
+                                    </x-dropdown-link>
+                                @endif
+                            </x-slot>
+                        </x-dropdown>
+                    </div>
+                    <!-- Menú ventas -->
+                    <div class="relative">
+                        <x-dropdown align="left">
+                            <x-slot name="trigger">
+                                <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 transition duration-150 ease-in-out bg-transparent border border-transparent rounded-md hover:text-gray-300 focus:outline-none">
+                                    <div>{{ __('Ventas') }}</div>
+                                    <div class="ms-1">
+                                        <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </button>
+                            </x-slot>
+
+                            <x-slot name="content">
+                                @if (Auth::user()->hasRole('administrador'))
+                                    <x-dropdown-link :href="route('ventas.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Ver ventas') }}
+                                    </x-dropdown-link>
+                                    <x-dropdown-link :href="route('panel-ventas.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Panel de Ventas') }}
+                                    </x-dropdown-link>
+                                    
+                                @endif
+                            </x-slot>
+                        </x-dropdown>
+                    </div>
+
                 </div>
             </div>
             <!-- Settings Dropdown -->

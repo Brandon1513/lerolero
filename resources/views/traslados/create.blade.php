@@ -76,7 +76,7 @@
                 <x-input-error :messages="$errors->get('productos')" class="mt-2" />
             </div>
 
-            <x-primary-button id="btn-enviar" class="mt-6" disabled title="Corrige los errores antes de enviar.">
+            <x-primary-button id="btn-enviar" class="mt-6">
                 Registrar Traslado
             </x-primary-button>
         </form>

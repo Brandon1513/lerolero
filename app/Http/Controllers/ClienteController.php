@@ -57,6 +57,10 @@ public function create()
             'telefono' => 'nullable|string|max:20',
             'asignado_a' => 'nullable|exists:users,id',
             'nivel_precio_id' => 'nullable|exists:niveles_precio,id',
+            'latitud' => 'nullable|numeric',
+            'longitud' => 'nullable|numeric',
+            'dias_visita' => 'nullable|array',
+            'dias_visita.*' => 'in:Lunes,Martes,Miércoles,Jueves,Viernes,Sábado,Domingo',
 
         ]);
 
@@ -80,6 +84,10 @@ public function create()
             'telefono' => 'nullable|string|max:20',
             'asignado_a' => 'nullable|exists:users,id',
             'nivel_precio_id' => 'nullable|exists:niveles_precio,id',
+            'latitud' => 'nullable|numeric',
+            'longitud' => 'nullable|numeric',
+            'dias_visita' => 'nullable|array',
+            'dias_visita.*' => 'in:Lunes,Martes,Miércoles,Jueves,Viernes,Sábado,Domingo',
 
         ]);
 

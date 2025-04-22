@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\VentaController;
 use App\Http\Controllers\AlmacenController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ProfileController;
@@ -88,8 +89,15 @@ Route::get('/traslados/{traslado}', [\App\Http\Controllers\TrasladoController::c
 //Inventario
 Route::get('/inventario', [\App\Http\Controllers\InventarioController::class, 'index'])->name('inventario.index');
 
-//ventas movil
-Route::middleware('auth:sanctum')->post('/ventas', [\App\Http\Controllers\Api\VentaController::class, 'store']);
+
+//ventas
+Route::middleware(['auth', 'role:administrador'])->group(function () {
+    Route::resource('ventas', VentaController::class)->only(['index', 'create', 'store']);
+    Route::get('/ventas/{venta}', [App\Http\Controllers\VentaController::class, 'show'])->name('ventas.show');
+    Route::middleware(['auth', 'role:administrador'])->get('/panel-ventas', [VentaController::class, 'panel'])->name('ventas.panel');
+});
+
+
 
 
 require __DIR__.'/auth.php';

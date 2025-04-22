@@ -42,4 +42,8 @@ class User extends Authenticatable
     {
         return $this->hasOne(Almacen::class, 'user_id');
     }
+    public function clientes()
+    {
+        return $this->hasMany(Cliente::class, 'asignado_a'); // o el campo que uses
+    }
 }

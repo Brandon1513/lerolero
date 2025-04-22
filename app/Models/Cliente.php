@@ -19,7 +19,13 @@ class Cliente extends Model
         'codigo_postal',
         'municipio',
         'estado',
-        'activo'
+        'activo',
+        'latitud',
+        'longitud',
+        'dias_visita',
+    ];
+    protected $casts = [
+        'dias_visita' => 'array',
     ];
 
     public function asignadoA()
@@ -29,6 +35,10 @@ class Cliente extends Model
     public function nivelPrecio()
     {
         return $this->belongsTo(NivelPrecio::class, 'nivel_precio_id');
+    }
+    public function ventas()
+    {
+        return $this->hasMany(Venta::class);
     }
 
 }

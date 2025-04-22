@@ -92,7 +92,7 @@
                         <!-- Nivel de Precio -->
                         <div class="mb-4">
                             <x-input-label for="nivel_precio_id" value="Nivel de Precio" />
-                            <select name="nivel_precio_id" id="nivel_precio_id" class="block w-full mt-1 rounded-md border-gray-300 shadow-sm">
+                            <select name="nivel_precio_id" id="nivel_precio_id" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm">
                                 <option value="">-- Selecciona un nivel --</option>
                                 @foreach ($niveles as $nivel)
                                     <option value="{{ $nivel->id }}" {{ old('nivel_precio_id', $cliente->nivel_precio_id) == $nivel->id ? 'selected' : '' }}>
@@ -102,8 +102,45 @@
                             </select>
                             <x-input-error :messages="$errors->get('nivel_precio_id')" class="mt-2" />
                         </div>
+                        <!-- Mapa interactivo -->
+                        <div id="map" style="height: 300px;" class="my-4 rounded shadow"></div>
 
+                        <!-- Latitud -->
+                        <div class="mb-4">
+                            <x-input-label for="latitud" :value="__('Latitud')" />
+                            <x-text-input id="latitud" name="latitud" type="text" class="block w-full mt-1"
+                                :value="old('latitud', $cliente->latitud)" placeholder="Ej. 20.6765" />
+                            <x-input-error :messages="$errors->get('latitud')" class="mt-2" />
+                        </div>
 
+                        <!-- Longitud -->
+                        <div class="mb-4">
+                            <x-input-label for="longitud" :value="__('Longitud')" />
+                            <x-text-input id="longitud" name="longitud" type="text" class="block w-full mt-1"
+                                :value="old('longitud', $cliente->longitud)" placeholder="Ej. -103.3472" />
+                            <x-input-error :messages="$errors->get('longitud')" class="mt-2" />
+                        </div>
+
+                        <!-- Días de Visita -->
+                        <div class="mb-4">
+                            <x-input-label for="dias_visita" :value="__('Días de Visita')" />
+                            <div class="flex flex-wrap gap-4 mt-2">
+                                @php
+                                    $diasSeleccionados = old('dias_visita', $cliente->dias_visita ?? []);
+                                    if (is_string($diasSeleccionados)) $diasSeleccionados = explode(',', $diasSeleccionados);
+                                @endphp
+
+                                @foreach (['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado','Domingo'] as $dia)
+                                    <label class="inline-flex items-center">
+                                        <input type="checkbox" name="dias_visita[]" value="{{ $dia }}"
+                                            {{ in_array($dia, $diasSeleccionados) ? 'checked' : '' }}
+                                            class="text-indigo-600 border-gray-300 rounded shadow-sm focus:ring-indigo-500">
+                                        <span class="ml-2 text-sm text-gray-700">{{ $dia }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                            <x-input-error :messages="$errors->get('dias_visita')" class="mt-2" />
+                        </div>
                         <!-- Botón -->
                         <div class="flex justify-end mt-4">
                             <x-primary-button class="ml-4">
@@ -118,3 +155,42 @@
         </div>
     </div>
 </x-app-layout>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const initialLat = parseFloat(document.getElementById('latitud').value) || 20.6765;
+            const initialLng = parseFloat(document.getElementById('longitud').value) || -103.3472;
+
+            const map = L.map('map').setView([initialLat, initialLng], 14);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            const marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+
+            marker.on('dragend', function (e) {
+                const { lat, lng } = e.target.getLatLng();
+                document.getElementById('latitud').value = lat.toFixed(7);
+                document.getElementById('longitud').value = lng.toFixed(7);
+            });
+
+            map.on('click', function (e) {
+                const { lat, lng } = e.latlng;
+                marker.setLatLng([lat, lng]);
+                document.getElementById('latitud').value = lat.toFixed(7);
+                document.getElementById('longitud').value = lng.toFixed(7);
+            });
+
+            L.Control.geocoder({
+                defaultMarkGeocode: false
+            })
+            .on('markgeocode', function (e) {
+                const latlng = e.geocode.center;
+                map.setView(latlng, 17);
+                marker.setLatLng(latlng);
+                document.getElementById('latitud').value = latlng.lat.toFixed(7);
+                document.getElementById('longitud').value = latlng.lng.toFixed(7);
+            })
+            .addTo(map);
+        });
+    </script>
