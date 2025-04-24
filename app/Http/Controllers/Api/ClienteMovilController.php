@@ -23,14 +23,15 @@ class ClienteMovilController extends Controller
     public function delDia(Request $request)
     {
         $user = $request->user();
-        $hoy = now()->translatedFormat('l'); // Ej. 'Lunes', 'Martes'
-
+        $dia = ucfirst(now()->locale('es')->isoFormat('dddd')); // Ej. 'Lunes', 'Martes', etc.
+    
         $clientes = Cliente::where('asignado_a', $user->id)
-                    ->where('dias_visita', $hoy)
+                    ->whereJsonContains('dias_visita', $dia)
                     ->get();
-
+    
         return response()->json($clientes);
     }
+    
     public function ventas($id)
     {
         $cliente = \App\Models\Cliente::findOrFail($id);
