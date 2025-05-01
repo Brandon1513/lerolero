@@ -13,6 +13,8 @@ class DetalleVenta extends Model
         'precio_unitario',
         'subtotal',
         'almacen_id', // Nuevo campo para llevar control del almacén
+        'es_cambio',       // <-- agregar
+        'motivo_cambio'    // <-- agregar
     ];
 
     public function venta()

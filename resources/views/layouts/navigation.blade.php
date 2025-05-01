@@ -115,7 +115,9 @@
                                     <x-dropdown-link :href="route('ventas.panel')" class="text-gray-700 hover:bg-gray-200">
                                         {{ __('Panel de Ventas') }}
                                     </x-dropdown-link>
-                                    
+                                    <x-dropdown-link :href="route('cierres.index')" class="text-gray-700 hover:bg-gray-200">
+                                        {{ __('Cierre de Ruta') }}
+                                    </x-dropdown-link>
                                 @endif
                             </x-slot>
                         </x-dropdown>

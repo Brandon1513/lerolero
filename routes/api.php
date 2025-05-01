@@ -6,8 +6,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ClienteMovilController;
 use App\Http\Controllers\Api\InventarioMovilController;
+use App\Http\Controllers\Api\RechazoTemporalController;
 use App\Http\Controllers\Api\VentaController; // este sí está en Api
 use App\Http\Controllers\Api\AuthController; // si lo tienes en esta ruta
+
 
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -49,4 +51,11 @@ Route::middleware('auth:sanctum')->get('/clientes/{cliente}/ventas', function (\
         ->with(['cliente', 'detalles.producto']) // Asegúrate de incluir la relación 'cliente'
         ->latest()
         ->get();
+});
+
+
+Route::middleware('auth:sanctum')->post('/solicitar-cierre', [\App\Http\Controllers\Api\CierreRutaMovilController::class, 'solicitar']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/rechazos', [RechazoTemporalController::class, 'store']);
 });

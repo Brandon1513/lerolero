@@ -14,7 +14,8 @@
             <p><strong>Total:</strong> ${{ number_format($venta->total, 2) }}</p>
         </div>
 
-        <div class="overflow-hidden bg-white rounded-lg shadow">
+        <div class="mb-8 overflow-hidden bg-white rounded-lg shadow">
+            <h3 class="px-6 py-4 text-lg font-bold bg-gray-100">Productos Vendidos</h3>
             <table class="w-full text-sm border border-collapse">
                 <thead class="text-left bg-gray-100">
                     <tr>
@@ -26,7 +27,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($venta->detalles as $detalle)
+                    @foreach ($venta->detalles->where('es_cambio', false) as $detalle)
                         <tr>
                             <td class="px-4 py-2 border">{{ $detalle->producto->nombre }}</td>
                             <td class="px-4 py-2 border">{{ $detalle->cantidad }}</td>
@@ -38,5 +39,32 @@
                 </tbody>
             </table>
         </div>
+
+        @if ($venta->detalles->where('es_cambio', true)->count() > 0)
+            <div class="overflow-hidden bg-white rounded-lg shadow">
+                <h3 class="px-6 py-4 text-lg font-bold bg-yellow-100">Productos en Cambio</h3>
+                <table class="w-full text-sm border border-collapse">
+                    <thead class="text-left bg-yellow-100">
+                        <tr>
+                            <th class="px-4 py-2 border">Producto</th>
+                            <th class="px-4 py-2 border">Cantidad</th>
+                            <th class="px-4 py-2 border">Motivo de Cambio</th>
+                            <th class="px-4 py-2 border">Almacén</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($venta->detalles->where('es_cambio', true) as $detalle)
+                            <tr>
+                                <td class="px-4 py-2 border">{{ $detalle->producto->nombre }}</td>
+                                <td class="px-4 py-2 border">{{ $detalle->cantidad }}</td>
+                                <td class="px-4 py-2 border">{{ ucfirst($detalle->motivo_cambio) ?? '-' }}</td>
+                                <td class="px-4 py-2 border">{{ $detalle->almacen->nombre ?? 'N/A' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+
     </div>
 </x-app-layout>

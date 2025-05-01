@@ -111,6 +111,37 @@ class TrasladoController extends Controller
             $invDestino->save();
         }
     });
+    $almacenDestino = Almacen::find($request->almacen_destino_id);
+
+        if ($almacenDestino && $almacenDestino->tipo === 'vendedor') {
+            $productosIniciales = [];
+
+            foreach ($request->productos as $productoId => $cantidad) {
+                if ($cantidad && $cantidad > 0) {
+                    $producto = Producto::find($productoId);
+                    if ($producto) {
+                        $productosIniciales[] = [
+                            'producto_id' => $productoId,
+                            'nombre' => $producto->nombre,
+                            'cantidad' => $cantidad,
+                        ];
+                    }
+                }
+            }
+
+            // Buscar cierre pendiente para ese vendedor y fecha
+            $cierre = \App\Models\CierreRuta::where('vendedor_id', $almacenDestino->user_id)
+                ->whereDate('fecha', $request->fecha)
+                ->where('estatus', 'pendiente')
+                ->first();
+
+            if ($cierre && !$cierre->inventario_inicial) {
+                $cierre->update([
+                    'inventario_inicial' => $productosIniciales,
+                ]);
+            }
+        }
+
 
     return redirect()->route('traslados.index')->with('success', 'Traslado registrado correctamente.');
 }

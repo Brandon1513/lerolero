@@ -58,6 +58,7 @@ class VentaController extends Controller
                 'cantidad' => $item['cantidad'],
                 'precio_unitario' => $item['precio_unitario'],
                 'subtotal' => $item['cantidad'] * $item['precio_unitario'],
+                'almacen_id' => $vendedor->almacen->id,
             ]);
 
             // Descontar del inventario del vendedor

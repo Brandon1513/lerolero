@@ -27,13 +27,13 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::middleware(['role:administrador'])->group(function () {
+Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::resource('clientes', ClienteController::class);
     Route::resource('productos', ProductoController::class);
     Route::resource('inventarios', InventarioController::class);
+    Route::patch('/clientes/{cliente}/toggle', [ClienteController::class, 'toggleActivo'])->name('clientes.toggle');
 });
 
-Route::patch('/clientes/{cliente}/toggle', [ClienteController::class, 'toggleActivo'])->name('clientes.toggle');
 
 //rutas para vendedores
 Route::middleware(['auth', 'role:administrador'])->group(function () {
@@ -44,7 +44,7 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
 
 });
 
-
+//aun no se usa
 Route::middleware(['auth', 'role:administrador'])->get('/admin', [AdminController::class, 'index'])->name('admin.dashboard');
 
 
@@ -56,11 +56,14 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
 });
 
 //Unidades de medida
-Route::resource('unidades', UnidadMedidaController::class)->parameters([
-    'unidades' => 'unidad'
-]);
+Route::middleware(['auth', 'role:administrador'])->group(function () {
+    Route::resource('unidades', UnidadMedidaController::class)->parameters([
+        'unidades' => 'unidad'
+    ]);
 
-Route::patch('unidades/{unidad}/toggle', [UnidadMedidaController::class, 'toggle'])->name('unidades.toggle');
+    Route::patch('unidades/{unidad}/toggle', [UnidadMedidaController::class, 'toggle'])->name('unidades.toggle');
+});
+
 
 //productos
 
@@ -71,23 +74,24 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
 
     Route::patch('productos/{producto}/toggle', [ProductoController::class, 'toggle'])->name('productos.toggle');
 });
-//niveles de precio
-Route::resource('niveles-precio', NivelPrecioController::class)->middleware('role:administrador');
 
-//almacenes
-Route::resource('almacenes', AlmacenController::class)->middleware('role:administrador');
-Route::patch('/almacenes/{almacen}/toggle', [AlmacenController::class, 'toggleActivo'])->name('almacenes.toggle');
+Route::middleware(['auth', 'role:administrador'])->group(function () {
+    // Niveles de precio
+    Route::resource('niveles-precio', NivelPrecioController::class);
 
-//Traslados
-Route::resource('traslados', App\Http\Controllers\TrasladoController::class)->middleware('role:administrador');
-Route::get('/inventario/almacen/{id}', [\App\Http\Controllers\InventarioController::class, 'porAlmacen'])
-    ->name('inventario.por_almacen');
-Route::get('/traslados/{traslado}', [\App\Http\Controllers\TrasladoController::class, 'show'])
-    ->name('traslados.show');
+    // Almacenes
+    Route::resource('almacenes', AlmacenController::class);
+    Route::patch('/almacenes/{almacen}/toggle', [AlmacenController::class, 'toggleActivo'])->name('almacenes.toggle');
 
-    
-//Inventario
-Route::get('/inventario', [\App\Http\Controllers\InventarioController::class, 'index'])->name('inventario.index');
+    // Traslados
+    Route::resource('traslados', App\Http\Controllers\TrasladoController::class);
+    Route::get('/traslados/{traslado}', [App\Http\Controllers\TrasladoController::class, 'show'])->name('traslados.show');
+
+    // Inventario
+    Route::get('/inventario', [App\Http\Controllers\InventarioController::class, 'index'])->name('inventario.index');
+    Route::get('/inventario/almacen/{id}', [App\Http\Controllers\InventarioController::class, 'porAlmacen'])->name('inventario.por_almacen');
+});
+
 
 
 //ventas
@@ -97,6 +101,9 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::middleware(['auth', 'role:administrador'])->get('/panel-ventas', [VentaController::class, 'panel'])->name('ventas.panel');
 });
 
+Route::prefix('admin')->middleware(['auth', 'role:administrador'])->group(function () {
+    Route::resource('cierres', \App\Http\Controllers\Admin\CierreRutaController::class)->only(['index', 'show', 'update']);
+});
 
 
 
