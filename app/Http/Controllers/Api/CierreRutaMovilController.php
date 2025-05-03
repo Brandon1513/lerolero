@@ -11,52 +11,42 @@ use Carbon\Carbon;
 class CierreRutaMovilController extends Controller
 {
     public function solicitar(Request $request)
-{
-    $request->validate([
-        'inventario_final' => 'required|array',
-        'inventario_final.*.producto_id' => 'required|exists:productos,id',
-        'inventario_final.*.cantidad' => 'required|numeric|min:0',
-        'cambios' => 'nullable|array',
-        'cambios.*.producto_id' => 'required|exists:productos,id',
-        'cambios.*.cantidad' => 'required|numeric|min:0',
-        'cambios.*.motivo' => 'required|string|in:caducidad,no vendido,dañado,otro',
-    ]);
+    {
+        $vendedor = auth()->user();
+        $hoy = now()->toDateString();
 
-    $vendedor = auth()->user();
+        // Verificar si ya existe un cierre para hoy
+        $existe = CierreRuta::where('vendedor_id', $vendedor->id)
+            ->whereDate('fecha', $hoy)
+            ->first();
 
-    $hoy = now()->toDateString();
+        if ($existe) {
+            return response()->json([
+                'message' => 'Ya se ha enviado una solicitud de cierre hoy.',
+            ], 409);
+        }
 
-    $existe = CierreRuta::where('vendedor_id', $vendedor->id)
-        ->whereDate('fecha', $hoy)
-        ->first();
+        // Calcular total de ventas del día
+        $ventas = Venta::where('vendedor_id', $vendedor->id)
+            ->whereDate('fecha', $hoy)
+            ->get();
 
-    if ($existe) {
+        $total = $ventas->sum('total');
+
+        // Crear registro de cierre
+        $cierre = CierreRuta::create([
+            'vendedor_id' => $vendedor->id,
+            'fecha' => $hoy,
+            'total_ventas' => $total,
+            'inventario_inicial' => [],
+            'inventario_final' => [],
+            'cambios' => [],
+            'estatus' => 'pendiente',
+        ]);
+
         return response()->json([
-            'message' => 'Ya se ha enviado una solicitud de cierre hoy.',
-        ], 409);
+            'message' => 'Solicitud enviada correctamente.',
+            'cierre_id' => $cierre->id,
+        ], 201);
     }
-
-    $ventas = \App\Models\Venta::where('vendedor_id', $vendedor->id)
-        ->whereDate('fecha', $hoy)
-        ->get();
-
-    $total = $ventas->sum('total');
-
-    $cierre = CierreRuta::create([
-        'vendedor_id' => $vendedor->id,
-        'fecha' => $hoy,
-        'total_ventas' => $total,
-        'inventario_inicial' => [],
-        'inventario_final' => $request->inventario_final,
-        'cambios' => $request->cambios ?? [],
-        'estatus' => 'pendiente',
-    ]);
-
-    return response()->json([
-        'message' => 'Solicitud enviada correctamente.',
-        'cierre_id' => $cierre->id,
-    ], 201);
-}
-
-
 }
