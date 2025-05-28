@@ -22,9 +22,15 @@ class InventarioMovilController extends Controller
 
         // Obtener el inventario de ese almacén con el producto relacionado
         $inventario = Inventario::where('almacen_id', $almacen->id)
-            ->with('producto') // relación con modelo Producto
-            ->get();
+        ->with('producto')
+        ->get()
+        ->map(function ($item) {
+            $item->producto->makeHidden(['imagen']); // Oculta la ruta cruda si quieres
+            $item->producto->imagen_url = $item->producto->imagen_url;
+            return $item;
+        });
 
-        return response()->json($inventario);
-    }
+    // 🔴 FALTABA ESTO
+    return response()->json($inventario);
+}
 }

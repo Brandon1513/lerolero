@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\VentaController;
+use App\Http\Controllers\PublicController;
 use App\Http\Controllers\AlmacenController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ProfileController;
@@ -104,6 +105,13 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
 Route::prefix('admin')->middleware(['auth', 'role:administrador'])->group(function () {
     Route::resource('cierres', \App\Http\Controllers\Admin\CierreRutaController::class)->only(['index', 'show', 'update']);
 });
+
+
+// Rutas públicas del sitio web
+Route::get('/', [PublicController::class, 'home'])->name('public.home');
+Route::get('/catalogo', [PublicController::class, 'catalog'])->name('public.catalog');
+Route::get('/nosotros', [PublicController::class, 'about'])->name('public.about');
+Route::get('/contacto', [PublicController::class, 'contact'])->name('public.contact');
 
 
 

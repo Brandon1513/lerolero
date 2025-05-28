@@ -18,6 +18,7 @@ class Producto extends Model
         'precio',
         'fecha_caducidad',
         'cantidad',
+        'imagen',
     ];
     public function nivelesPrecio()
     {
@@ -38,4 +39,9 @@ class Producto extends Model
     {
         return $this->hasMany(ProductoNivelPrecio::class);
     }
+    public function getImagenUrlAttribute()
+    {
+        return $this->imagen ? asset('storage/' . $this->imagen) : null;
+    }
+
 }

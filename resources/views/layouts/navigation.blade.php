@@ -11,12 +11,11 @@
                 </div>
 
                 <!-- Navigation Links -->
+                @if (Auth::check())
                 <div class="hidden space-x-8 sm:flex sm:items-center sm:ms-6">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Inicio') }}
                     </x-nav-link>
-               
-            
                     <div class="relative">
                         <x-dropdown align="left">
                             <x-slot name="trigger">
@@ -31,39 +30,48 @@
                             </x-slot>
 
                             <x-slot name="content">
-                                <!-- Gestionar Jefes -->
-                                @if (Auth::user()->hasRole('administrador'))
-                                    <x-dropdown-link :href="route('clientes.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Gestionar Clientes') }}
-                                    </x-dropdown-link>
-                                    <x-dropdown-link :href="route('vendedores.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Gestionar Vendedores') }}
-                                    </x-dropdown-link>
-                                @endif
-                                <!-- Opción "Gestionar periodos" visible para administrador y recursos_humanos -->
-                                    <x-dropdown-link :href="route('niveles-precio.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Gestionar Niveles de precio') }}
-                                    </x-dropdown-link>
-                                <!-- Opción "Gestionar Usuarios" solo visible para administrador -->
-                                @if (Auth::user()->hasRole('administrador'))
-                                    <x-dropdown-link :href="route('unidades.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Gestionar Unidades') }}
-                                    </x-dropdown-link>
-                                @endif
-                                @if (Auth::user()->hasRole('administrador'))
-                                    <x-dropdown-link :href="route('productos.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Gestionar Productos') }}
-                                    </x-dropdown-link>
-                                @endif
-                                @if (Auth::user()->hasRole('administrador'))
-                                    <x-dropdown-link :href="route('categorias.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Gestionar categorias') }}
-                                    </x-dropdown-link>
-                                    
-                                @endif
-                            </x-slot>
+                            <!-- Gestionar Jefes -->
+                            @if (Auth::check() && Auth::user()->hasRole('administrador'))
+                                <x-dropdown-link :href="route('clientes.index')" class="text-gray-700 hover:bg-gray-200">
+                                    {{ __('Gestionar Clientes') }}
+                                </x-dropdown-link>
+                                <x-dropdown-link :href="route('vendedores.index')" class="text-gray-700 hover:bg-gray-200">
+                                    {{ __('Gestionar Vendedores') }}
+                                </x-dropdown-link>
+                            @endif
+
+                            <!-- Opción "Gestionar Niveles de precio" visible para administrador y recursos_humanos -->
+                            @if (Auth::check())
+                                <x-dropdown-link :href="route('niveles-precio.index')" class="text-gray-700 hover:bg-gray-200">
+                                    {{ __('Gestionar Niveles de precio') }}
+                                </x-dropdown-link>
+                            @endif
+
+                            <!-- Opción "Gestionar Unidades" solo visible para administrador -->
+                            @if (Auth::check() && Auth::user()->hasRole('administrador'))
+                                <x-dropdown-link :href="route('unidades.index')" class="text-gray-700 hover:bg-gray-200">
+                                    {{ __('Gestionar Unidades') }}
+                                </x-dropdown-link>
+                            @endif
+
+                            <!-- Opción "Gestionar Productos" solo visible para administrador -->
+                            @if (Auth::check() && Auth::user()->hasRole('administrador'))
+                                <x-dropdown-link :href="route('productos.index')" class="text-gray-700 hover:bg-gray-200">
+                                    {{ __('Gestionar Productos') }}
+                                </x-dropdown-link>
+                            @endif
+
+                            <!-- Opción "Gestionar Categorías" solo visible para administrador -->
+                            @if (Auth::check() && Auth::user()->hasRole('administrador'))
+                                <x-dropdown-link :href="route('categorias.index')" class="text-gray-700 hover:bg-gray-200">
+                                    {{ __('Gestionar Categorías') }}
+                                </x-dropdown-link>
+                            @endif
+                        </x-slot>
+
                         </x-dropdown>
                     </div>
+
                     <!-- Menú Almacenes -->
                     <div class="relative">
                         <x-dropdown align="left">
@@ -79,7 +87,7 @@
                             </x-slot>
 
                             <x-slot name="content">
-                                @if (Auth::user()->hasRole('administrador'))
+                                @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                     <x-dropdown-link :href="route('almacenes.index')" class="text-gray-700 hover:bg-gray-200">
                                         {{ __('Ver Almacenes') }}
                                     </x-dropdown-link>
@@ -108,7 +116,7 @@
                             </x-slot>
 
                             <x-slot name="content">
-                                @if (Auth::user()->hasRole('administrador'))
+                                @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                     <x-dropdown-link :href="route('ventas.index')" class="text-gray-700 hover:bg-gray-200">
                                         {{ __('Ver ventas') }}
                                     </x-dropdown-link>
@@ -125,12 +133,13 @@
 
                 </div>
             </div>
+            
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out bg-white border border-transparent rounded-md hover:text-gray-700 focus:outline-none">
-                            <div>{{ Auth::user()->name }}</div>
+                            <div>{{ Auth::check() ? Auth::user()->name : 'Iniciar Sesión' }}</div>
 
                             <div class="ms-1">
                                 <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -158,6 +167,12 @@
                     </x-slot>
                 </x-dropdown>
             </div>
+            @else
+            <!-- Solo botones para visitantes no autenticados -->
+                <div class="hidden sm:flex sm:items-center sm:ms-6">
+                    <a href="{{ route('login') }}" class="text-sm text-gray-700 underline hover:text-gray-900">Iniciar Sesión</a>
+                </div>
+            @endif
 
             <!-- Hamburger -->
             <div class="flex items-center -me-2 sm:hidden">
@@ -180,28 +195,100 @@
         </div>
 
         <!-- Responsive Settings Options -->
+        @if (Auth::check())
         <div class="pt-4 pb-1 border-t border-gray-200">
-            <div class="px-4">
-                <div class="text-base font-medium text-gray-800">{{ Auth::user()->name }}</div>
-                <div class="text-sm font-medium text-gray-500">{{ Auth::user()->email }}</div>
-            </div>
+                <div class="px-4">
+                    <div class="text-base font-medium text-white">{{ Auth::user()->name }}</div>
+                    <div class="text-sm font-medium text-gray-300">{{ Auth::user()->email }}</div>
+                </div>
+                <div class="mt-3 space-y-1">
+                    <x-responsive-nav-link :href="route('profile.edit')" >
+                            {{ __('Perfil') }}
+                        </x-responsive-nav-link>
+                    
+                    @if(Auth::user()->hasRole('administrador'))
+                        <x-responsive-nav-link :href="route('clientes.index')" :active="request()->routeIs('clientes.index')" >
+                        {{ __('Clientes') }}
+                        </x-responsive-nav-link>
+                    @endif
 
-            <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Profile') }}
+                    @if(Auth::user()->hasRole('administrador'))
+                        <x-responsive-nav-link :href="route('vendedores.index')" :active="request()->routeIs('vendedores.index')" >
+                        {{ __('Vendedores') }}
+                        </x-responsive-nav-link>
+                    @endif
+                    
+                    @if(Auth::user()->hasRole('administrador'))
+                        <x-responsive-nav-link :href="route('niveles-precio.index')" :active="request()->routeIs('niveles-precio.index')" >
+                        {{ __('Nivel de precio') }}
+                        </x-responsive-nav-link>
+                    @endif 
+
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('unidades.index')" :active="request()->routeIs('unidades.index')" >
+                        {{ __('Unidades') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('productos.index')" :active="request()->routeIs('productos.index')" >
+                        {{ __('Productos') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('categorias.index')" :active="request()->routeIs('categorias.index')" >
+                        {{ __('Categorias') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.index')" >
+                        {{ __('Inventarios') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('almacenes.index')" :active="request()->routeIs('almacenes.index')" >
+                        {{ __('Almacenes') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('traslados.index')" :active="request()->routeIs('traslados.index')" >
+                        {{ __('Traslados') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('ventas.index')" :active="request()->routeIs('ventas.index')" >
+                        {{ __('Ventas') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('ventas.panel')" :active="request()->routeIs('ventas.panel')" >
+                        {{ __('Panel de ventas') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('cierres.index')" :active="request()->routeIs('cierres.index')" >
+                        {{ __('Cierres de Venta') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    
+                        <!-- Authentication -->
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <x-responsive-nav-link :href="route('logout')" 
+                                    onclick="event.preventDefault();
+                                                this.closest('form').submit();">
+                                {{ __('Salir') }}
+                            </x-responsive-nav-link>
+                        </form>
+                </div>
+            </div>
+            
+        @else
+         <!-- Mostrar link de iniciar sesión si no está logueado en menú responsive -->
+            <div class="pt-4 pb-1 border-t border-gray-200">
+                <x-responsive-nav-link :href="route('login')" >
+                    {{ __('Iniciar Sesión') }}
                 </x-responsive-nav-link>
-
-                <!-- Authentication -->
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-
-                    <x-responsive-nav-link :href="route('logout')"
-                            onclick="event.preventDefault();
-                                        this.closest('form').submit();">
-                        {{ __('Log Out') }}
-                    </x-responsive-nav-link>
-                </form>
             </div>
-        </div>
+        @endif
     </div>
 </nav>

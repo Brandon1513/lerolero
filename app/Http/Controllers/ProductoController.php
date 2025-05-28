@@ -37,9 +37,15 @@ class ProductoController extends Controller
         'precio' => 'required|numeric|min:0',
         'fecha_caducidad' => 'nullable|date',
         'cantidad' => 'required|numeric|min:0',
+        'imagen' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
     ]);
 
-    $producto = Producto::create($request->only([
+    $imagePath = null;
+    if ($request->hasFile('imagen')) {
+        $imagePath = $request->file('imagen')->store('productos', 'public');
+    }
+
+    $data = $request->only([
         'nombre',
         'marca',
         'categoria_id',
@@ -47,17 +53,21 @@ class ProductoController extends Controller
         'precio',
         'fecha_caducidad',
         'cantidad',
-    ]));
+    ]);
 
-    // Crear inventario para el almacén general (ID = 1)
+    $data['imagen'] = $imagePath;
+
+    $producto = Producto::create($data);
+
     Inventario::create([
         'producto_id' => $producto->id,
-        'almacen_id' => 1, // almacén general
+        'almacen_id' => 1,
         'cantidad' => $producto->cantidad,
     ]);
 
     return redirect()->route('productos.index')->with('success', 'Producto creado correctamente.');
 }
+
 
     public function edit(Producto $producto)
     {
@@ -76,9 +86,17 @@ class ProductoController extends Controller
         'precio' => 'required|numeric|min:0',
         'fecha_caducidad' => 'nullable|date',
         'cantidad' => 'required|numeric|min:0',
+        'imagen' => 'nullable|image|max:2048',
     ]);
 
-    $producto->update($request->only([
+    // Manejar la imagen si se subió una nueva
+    if ($request->hasFile('imagen')) {
+        $imagePath = $request->file('imagen')->store('productos', 'public');
+        $producto->imagen = $imagePath;
+    }
+
+    // Actualizar el resto de los campos
+    $producto->fill($request->only([
         'nombre',
         'marca',
         'categoria_id',
@@ -88,8 +106,10 @@ class ProductoController extends Controller
         'cantidad',
     ]));
 
+    $producto->save();
+
     // Actualizar el inventario en el almacén general (ID 1)
-    $inventario = Almacen::firstOrNew([
+    $inventario = Inventario::firstOrNew([
         'producto_id' => $producto->id,
         'almacen_id' => 1,
     ]);
@@ -99,6 +119,7 @@ class ProductoController extends Controller
 
     return redirect()->route('productos.index')->with('success', 'Producto actualizado correctamente.');
 }
+
 
     public function destroy(Producto $producto)
     {

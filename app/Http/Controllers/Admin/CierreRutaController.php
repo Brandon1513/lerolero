@@ -67,12 +67,12 @@ class CierreRutaController extends Controller
     
         // 2. Obtener inventario INICIAL desde traslado del día
         $trasladoInicial = Traslado::where('almacen_destino_id', $almacenVendedor->id)
-            ->whereDate('fecha', $cierre->fecha)
-            ->latest()
-            ->first();
+        ->whereDate('fecha', '=', Carbon::parse($cierre->fecha)->toDateString())
+        ->latest()
+        ->first();
     
         $inventarioInicial = [];
-    
+        
         if ($trasladoInicial) {
             $inventarioInicial = DetalleTraslado::where('traslado_id', $trasladoInicial->id)
                 ->get()
