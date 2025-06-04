@@ -17,6 +17,8 @@ class RechazoTemporalController extends Controller
             'cambios.*.producto_id' => 'required|exists:productos,id',
             'cambios.*.cantidad' => 'required|integer|min:1',
             'cambios.*.motivo' => 'required|in:caducidad,no vendido,dañado,otro',
+            'cambios.*.lote' => 'nullable|string|max:100',          // <- Nuevo campo
+            'cambios.*.fecha_caducidad' => 'nullable|date',          // <- Nuevo campo
         ]);
 
         foreach ($request->cambios as $cambio) {
@@ -25,6 +27,8 @@ class RechazoTemporalController extends Controller
                 'vendedor_id' => Auth::id(),
                 'cantidad' => $cambio['cantidad'],
                 'motivo' => $cambio['motivo'],
+                'lote' => $cambio['lote'] ?? null,                    // <- Ahora incluye el lote
+                'fecha_caducidad' => $cambio['fecha_caducidad'] ?? null, // <- Ahora incluye la fecha de caducidad
                 'fecha' => Carbon::now()->toDateString(),
             ]);
         }

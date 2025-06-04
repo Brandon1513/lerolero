@@ -30,11 +30,14 @@ class InventarioMovilController extends Controller
             ->map(function ($item) {
                 return [
                     'producto_id' => $item->producto_id,
-                    'producto' => $item->producto->nombre,
+                    'producto' => [
+                        'nombre' => $item->producto->nombre,
+                        'precio' => $item->producto->precio,  // <-- Agregado
+                        'imagen_url' => $item->producto->imagen_url,
+                    ],
                     'lote' => $item->lote,
                     'fecha_caducidad' => $item->fecha_caducidad,
                     'cantidad' => $item->cantidad,
-                    'imagen_url' => $item->producto->imagen_url,
                 ];
             });
 

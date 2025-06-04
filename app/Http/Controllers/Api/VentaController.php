@@ -30,11 +30,12 @@ class VentaController extends Controller
         $total = 0;
 
         foreach ($request->productos as $item) {
-            $inventario = Inventario::where('almacen_id', $vendedor->almacen->id)
+            // 1️⃣ Sumamos stock disponible de lotes
+            $stockTotal = \App\Models\Inventario::where('almacen_id', $vendedor->almacen->id)
                 ->where('producto_id', $item['producto_id'])
-                ->first();
+                ->sum('cantidad');
 
-            if (!$inventario || $inventario->cantidad < $item['cantidad']) {
+            if ($stockTotal < $item['cantidad']) {
                 return response()->json([
                     'message' => "Stock insuficiente para el producto ID {$item['producto_id']}"
                 ], 422);
@@ -43,7 +44,8 @@ class VentaController extends Controller
             $total += $item['cantidad'] * $item['precio_unitario'];
         }
 
-        $venta = Venta::create([
+        // 2️⃣ Creamos la venta
+        $venta = \App\Models\Venta::create([
             'cliente_id' => $request->cliente_id,
             'vendedor_id' => $vendedor->id,
             'fecha' => now(),
@@ -51,32 +53,54 @@ class VentaController extends Controller
             'observaciones' => $request->observaciones,
         ]);
 
+        // 3️⃣ Recorremos y descontamos FIFO
         foreach ($request->productos as $item) {
-            DetalleVenta::create([
-                'venta_id' => $venta->id,
-                'producto_id' => $item['producto_id'],
-                'cantidad' => $item['cantidad'],
-                'precio_unitario' => $item['precio_unitario'],
-                'subtotal' => $item['cantidad'] * $item['precio_unitario'],
-                'almacen_id' => $vendedor->almacen->id,
-            ]);
+            $cantidadRestante = $item['cantidad'];
 
-            // Descontar del inventario del vendedor
-            Inventario::where('almacen_id', $vendedor->almacen->id)
+            $lotes = \App\Models\Inventario::where('almacen_id', $vendedor->almacen->id)
                 ->where('producto_id', $item['producto_id'])
-                ->decrement('cantidad', $item['cantidad']);
+                ->where('cantidad', '>', 0)
+                ->orderBy('fecha_caducidad', 'asc')
+                ->get();
+
+            foreach ($lotes as $lote) {
+                if ($cantidadRestante <= 0) break;
+
+                $descontar = min($lote->cantidad, $cantidadRestante);
+
+                // Actualizamos lote
+                $lote->decrement('cantidad', $descontar);
+
+                // Guardamos detalle de la venta con lote
+                \App\Models\DetalleVenta::create([
+                    'venta_id' => $venta->id,
+                    'producto_id' => $item['producto_id'],
+                    'cantidad' => $descontar,
+                    'precio_unitario' => $item['precio_unitario'],
+                    'subtotal' => $descontar * $item['precio_unitario'],
+                    'almacen_id' => $vendedor->almacen->id,
+                    'lote' => $lote->lote,
+                    'fecha_caducidad' => $lote->fecha_caducidad,
+                ]);
+
+                $cantidadRestante -= $descontar;
+            }
         }
 
         DB::commit();
 
         return response()->json([
-            'message' => 'Venta registrada exitosamente.',
+            'message' => 'Venta registrada correctamente.',
             'venta_id' => $venta->id,
         ], 201);
 
     } catch (\Exception $e) {
         DB::rollBack();
-        return response()->json(['message' => 'Error al registrar la venta.', 'error' => $e->getMessage()], 500);
+        return response()->json([
+            'message' => 'Error al registrar la venta.',
+            'error' => $e->getMessage()
+        ], 500);
     }
 }
+
 }
