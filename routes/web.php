@@ -87,6 +87,8 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     // Traslados
     Route::resource('traslados', App\Http\Controllers\TrasladoController::class);
     Route::get('/traslados/{traslado}', [App\Http\Controllers\TrasladoController::class, 'show'])->name('traslados.show');
+    Route::get('/traslados/lotes/{almacen}', [\App\Http\Controllers\TrasladoController::class, 'lotesPorAlmacen']);
+
 
     // Inventario
     Route::get('/inventario', [App\Http\Controllers\InventarioController::class, 'index'])->name('inventario.index');
@@ -114,5 +116,12 @@ Route::get('/nosotros', [PublicController::class, 'about'])->name('public.about'
 Route::get('/contacto', [PublicController::class, 'contact'])->name('public.contact');
 
 
+
+
+// Producciones
+Route::middleware(['auth', 'role:administrador'])->group(function () {
+    Route::resource('producciones', \App\Http\Controllers\ProduccionController::class)->only(['index', 'create', 'store', 'destroy']);
+    Route::get('/producciones/{produccion}', [\App\Http\Controllers\ProduccionController::class, 'show'])->name('producciones.show');
+});
 
 require __DIR__.'/auth.php';

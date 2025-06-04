@@ -57,79 +57,86 @@ class TrasladoController extends Controller
         'almacen_origen_id' => 'required|exists:almacenes,id|different:almacen_destino_id',
         'almacen_destino_id' => 'required|exists:almacenes,id',
         'fecha' => 'required|date',
-        'productos' => 'required|array',
-        'productos.*' => 'nullable|integer|min:1',
-        'observaciones' => 'nullable|string|max:500',
+        'detalles' => 'required|array',
+        'detalles.*.*.cantidad' => 'nullable|numeric|min:1',
+        'detalles.*.*.lote' => 'required|string',
+        'detalles.*.*.fecha_caducidad' => 'required|date',
     ]);
 
-    // Validar existencia de stock antes de continuar
-    foreach ($request->productos as $productoId => $cantidad) {
-        if (!$cantidad || $cantidad < 1) continue;
-
-        $inventarioOrigen = Inventario::where('almacen_id', $request->almacen_origen_id)
-            ->where('producto_id', $productoId)
-            ->first();
-
-        if (!$inventarioOrigen || $inventarioOrigen->cantidad < $cantidad) {
-            return back()->withErrors([
-                "productos.$productoId" => "No hay suficiente stock para el producto seleccionado en el almacén origen.",
-            ])->withInput();
-        }
-    }
-
-    DB::transaction(function () use ($request) {
-        // 1. Crear el traslado
-        $traslado = Traslado::create([
-            'almacen_origen_id' => $request->almacen_origen_id,
-            'almacen_destino_id' => $request->almacen_destino_id,
-            'fecha' => $request->fecha,
-            'observaciones' => $request->observaciones,
-        ]);
-
-        // 2. Recorrer productos
-        foreach ($request->productos as $productoId => $cantidad) {
-            if (!$cantidad || $cantidad < 1) continue;
-
-            // 2.1 Crear el detalle del traslado
-            DetalleTraslado::create([
-                'traslado_id' => $traslado->id,
-                'producto_id' => $productoId,
-                'cantidad' => $cantidad,
+    try {
+        DB::transaction(function () use ($request) {
+            $traslado = Traslado::create([
+                'almacen_origen_id' => $request->almacen_origen_id,
+                'almacen_destino_id' => $request->almacen_destino_id,
+                'fecha' => $request->fecha,
+                'observaciones' => $request->observaciones,
             ]);
 
-            // 2.2 Actualizar inventario - Restar del almacén origen
-            Inventario::where('almacen_id', $request->almacen_origen_id)
-                ->where('producto_id', $productoId)
-                ->decrement('cantidad', $cantidad);
+            foreach ($request->detalles as $productoId => $lotes) {
+                foreach ($lotes as $detalle) {
+                    $cantidad = $detalle['cantidad'];
+                    $lote = $detalle['lote'];
+                    $caducidad = $detalle['fecha_caducidad'];
 
-            // 2.3 Actualizar inventario - Sumar al almacén destino
-            $invDestino = Inventario::firstOrNew([
-                'almacen_id' => $request->almacen_destino_id,
-                'producto_id' => $productoId,
-            ]);
-            $invDestino->cantidad = ($invDestino->cantidad ?? 0) + $cantidad;
-            $invDestino->save();
-        }
-    });
-    $almacenDestino = Almacen::find($request->almacen_destino_id);
+                    if (!$cantidad || $cantidad < 1) continue;
+
+                    // Validar stock del lote exacto
+                    $loteOrigen = Inventario::where('almacen_id', $request->almacen_origen_id)
+                        ->where('producto_id', $productoId)
+                        ->where('lote', $lote)
+                        ->where('fecha_caducidad', $caducidad)
+                        ->first();
+
+                    if (!$loteOrigen || $loteOrigen->cantidad < $cantidad) {
+                        throw new \Exception("No hay suficiente stock del lote {$lote} para el producto ID {$productoId}.");
+                    }
+
+                    // Registrar detalle del traslado
+                    DetalleTraslado::create([
+                        'traslado_id' => $traslado->id,
+                        'producto_id' => $productoId,
+                        'cantidad' => $cantidad,
+                        'lote' => $lote,
+                        'fecha_caducidad' => $caducidad,
+                    ]);
+
+                    // Restar del origen
+                    $loteOrigen->decrement('cantidad', $cantidad);
+
+                    // Sumar en destino (mismo lote y fecha)
+                    $loteDestino = Inventario::firstOrNew([
+                        'almacen_id' => $request->almacen_destino_id,
+                        'producto_id' => $productoId,
+                        'lote' => $lote,
+                        'fecha_caducidad' => $caducidad,
+                    ]);
+                    $loteDestino->cantidad = ($loteDestino->cantidad ?? 0) + $cantidad;
+                    $loteDestino->save();
+                }
+            }
+        });
+
+        // Actualizar inventario inicial en cierre de ruta si aplica
+        $almacenDestino = Almacen::find($request->almacen_destino_id);
 
         if ($almacenDestino && $almacenDestino->tipo === 'vendedor') {
             $productosIniciales = [];
 
-            foreach ($request->productos as $productoId => $cantidad) {
-                if ($cantidad && $cantidad > 0) {
+            foreach ($request->detalles as $productoId => $lotes) {
+                $total = array_sum(array_column($lotes, 'cantidad'));
+
+                if ($total > 0) {
                     $producto = Producto::find($productoId);
                     if ($producto) {
                         $productosIniciales[] = [
                             'producto_id' => $productoId,
                             'nombre' => $producto->nombre,
-                            'cantidad' => $cantidad,
+                            'cantidad' => $total,
                         ];
                     }
                 }
             }
 
-            // Buscar cierre pendiente para ese vendedor y fecha
             $cierre = \App\Models\CierreRuta::where('vendedor_id', $almacenDestino->user_id)
                 ->whereDate('fecha', $request->fecha)
                 ->where('estatus', 'pendiente')
@@ -142,9 +149,14 @@ class TrasladoController extends Controller
             }
         }
 
-
-    return redirect()->route('traslados.index')->with('success', 'Traslado registrado correctamente.');
+        return redirect()->route('traslados.index')->with('success', 'Traslado registrado correctamente.');
+    } catch (\Throwable $e) {
+        \Log::error('Error en traslado', ['error' => $e->getMessage()]);
+        return back()->withErrors(['error' => $e->getMessage()])->withInput();
+    }
 }
+
+  
 
 
     /**
@@ -189,4 +201,28 @@ class TrasladoController extends Controller
 
         return response()->json($inventario);
     }
+    public function lotesPorAlmacen($almacenId)
+{
+    $lotes = Inventario::with('producto')
+        ->where('almacen_id', $almacenId)
+        ->where('cantidad', '>', 0)
+        ->whereNotNull('lote')
+        ->orderBy('producto_id')
+        ->orderBy('fecha_caducidad')
+        ->get();
+
+    $agrupado = [];
+
+    foreach ($lotes as $lote) {
+        $agrupado[$lote->producto_id][] = [
+            'lote' => $lote->lote,
+            'fecha_caducidad' => $lote->fecha_caducidad,
+            'cantidad' => $lote->cantidad,
+            'producto' => $lote->producto->nombre ?? 'Producto',
+        ];
+    }
+
+    return response()->json($agrupado);
+}
+
 }

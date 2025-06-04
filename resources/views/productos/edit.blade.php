@@ -75,26 +75,6 @@
                 <x-input-error :messages="$errors->get('imagen')" class="mt-2" />
             </div>
 
-            <!-- Fecha de Caducidad -->
-            <div class="mb-4">
-                <x-input-label for="fecha_caducidad" value="Fecha de Caducidad" />
-                <x-text-input 
-                id="fecha_caducidad" 
-                name="fecha_caducidad" 
-                type="date" 
-                class="block w-full mt-1"
-                value="{{ old('fecha_caducidad', $producto->fecha_caducidad instanceof \Carbon\Carbon ? $producto->fecha_caducidad->format('Y-m-d') : $producto->fecha_caducidad) }}"
-            />
-            </div>
-            
-
-            <!-- Cantidad -->
-            <div class="mb-4">
-                <x-input-label for="cantidad" value="Cantidad" />
-                <x-text-input id="cantidad" name="cantidad" type="number" step="1" min="0" class="block w-full mt-1"
-                    value="{{ old('cantidad', $producto->cantidad) }}" required />
-                <x-input-error :messages="$errors->get('cantidad')" class="mt-2" />
-            </div>
 
             <div class="flex justify-end mt-6">
                 <x-primary-button>

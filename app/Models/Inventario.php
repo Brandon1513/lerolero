@@ -6,12 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Inventario extends Model
 {
-    protected $table = 'inventario_almacen'; // Asegúrate que coincide con tu tabla
+    protected $table = 'inventario_almacen';
 
     protected $fillable = [
         'almacen_id',
         'producto_id',
         'cantidad',
+        'lote',
+        'fecha_caducidad',
     ];
 
     public function almacen()
@@ -24,3 +26,4 @@ class Inventario extends Model
         return $this->belongsTo(Producto::class);
     }
 }
+

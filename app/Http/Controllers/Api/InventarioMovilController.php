@@ -20,17 +20,24 @@ class InventarioMovilController extends Controller
             return response()->json(['message' => 'Almacén no asignado'], 404);
         }
 
-        // Obtener el inventario de ese almacén con el producto relacionado
+        // Obtener el inventario por lote, con fecha de caducidad
         $inventario = Inventario::where('almacen_id', $almacen->id)
-        ->with('producto')
-        ->get()
-        ->map(function ($item) {
-            $item->producto->makeHidden(['imagen']); // Oculta la ruta cruda si quieres
-            $item->producto->imagen_url = $item->producto->imagen_url;
-            return $item;
-        });
+            ->where('cantidad', '>', 0)
+            ->with('producto')
+            ->orderBy('producto_id')
+            ->orderBy('fecha_caducidad')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'producto_id' => $item->producto_id,
+                    'producto' => $item->producto->nombre,
+                    'lote' => $item->lote,
+                    'fecha_caducidad' => $item->fecha_caducidad,
+                    'cantidad' => $item->cantidad,
+                    'imagen_url' => $item->producto->imagen_url,
+                ];
+            });
 
-    // 🔴 FALTABA ESTO
-    return response()->json($inventario);
-}
+        return response()->json($inventario);
+    }
 }

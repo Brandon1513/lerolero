@@ -16,8 +16,6 @@ class Producto extends Model
         'categoria_id',
         'unidad_medida_id',
         'precio',
-        'fecha_caducidad',
-        'cantidad',
         'imagen',
     ];
     public function nivelesPrecio()

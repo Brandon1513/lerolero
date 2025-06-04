@@ -12,6 +12,8 @@ class DetalleTraslado extends Model
         'traslado_id',
         'producto_id',
         'cantidad',
+        'lote',
+        'fecha_caducidad',
     ];
 
     public function traslado()

@@ -10,25 +10,23 @@
             <!-- Almacén Origen -->
             <div class="mb-4">
                 <x-input-label for="almacen_origen_id" value="Almacén Origen" />
-                <select name="almacen_origen_id" id="almacen_origen_id" class="block w-full mt-1">
+                <select name="almacen_origen_id" id="almacen_origen_id" class="block w-full mt-1" required>
                     <option value="">-- Selecciona uno --</option>
                     @foreach($almacenes as $almacen)
                         <option value="{{ $almacen->id }}">{{ $almacen->nombre }}</option>
                     @endforeach
                 </select>
-                <x-input-error :messages="$errors->get('almacen_origen_id')" class="mt-2" />
             </div>
 
             <!-- Almacén Destino -->
             <div class="mb-4">
                 <x-input-label for="almacen_destino_id" value="Almacén Destino" />
-                <select name="almacen_destino_id" id="almacen_destino_id" class="block w-full mt-1">
+                <select name="almacen_destino_id" id="almacen_destino_id" class="block w-full mt-1" required>
                     <option value="">-- Selecciona uno --</option>
                     @foreach($almacenes as $almacen)
                         <option value="{{ $almacen->id }}">{{ $almacen->nombre }}</option>
                     @endforeach
                 </select>
-                <x-input-error :messages="$errors->get('almacen_destino_id')" class="mt-2" />
             </div>
 
             <!-- Fecha -->
@@ -43,87 +41,80 @@
                 <textarea name="observaciones" id="observaciones" rows="3" class="block w-full border-gray-300 rounded-md shadow-sm"></textarea>
             </div>
 
-            <!-- Productos -->
+            <!-- Productos por Lote -->
             <div class="mb-4">
                 <h3 class="mb-2 text-lg font-semibold text-gray-700">Productos a trasladar</h3>
 
-                @foreach ($productos as $producto)
-                    <div class="flex items-center gap-4 mb-3">
-                        <div class="w-1/3">
-                            <label class="block font-medium text-gray-700">{{ $producto->nombre }}</label>
-                            <span class="text-xs text-gray-500 disponibilidad" data-producto="{{ $producto->id }}">
-                                Disponible: {{ $inventario[$producto->id] ?? 0 }}
-                            </span>
-                        </div>
-
-                        <div class="w-1/4">
-                            <input type="number"
-                                name="productos[{{ $producto->id }}]"
-                                min="0"
-                                max="{{ $inventario[$producto->id] ?? 0 }}"
-                                class="w-full px-2 py-1 border-gray-300 rounded-md shadow-sm cantidad-input"
-                                data-producto="{{ $producto->id }}"
-                            />
-                            <div class="hidden text-xs text-red-500" id="error-{{ $producto->id }}">
-                                No puedes ingresar más de lo disponible.
-                            </div>
-                        </div>
-                    </div>
-                @endforeach
-
-
-
-                <x-input-error :messages="$errors->get('productos')" class="mt-2" />
+                <div id="contenedor-productos">
+                    <!-- Aquí se cargarán los lotes dinámicamente vía JS -->
+                    <p class="text-gray-500">Selecciona un almacén origen para ver los productos disponibles.</p>
+                </div>
             </div>
 
-            <x-primary-button id="btn-enviar" class="mt-6">
+            <<x-primary-button type="submit" class="mt-6">
                 Registrar Traslado
             </x-primary-button>
         </form>
     </div>
 </x-app-layout>
-@push('scripts')
-<script>
-    document.getElementById('almacen_origen_id').addEventListener('change', function () {
-        const almacenId = this.value;
 
-        fetch(`/inventario/almacen/${almacenId}`)
-            .then(response => response.json())
-            .then(data => {
-                // Actualiza las cantidades disponibles
-                document.querySelectorAll('.disponibilidad').forEach(span => {
-                    const id = span.dataset.producto;
-                    const cantidad = data[id] ?? 0;
-                    span.textContent = 'Disponible: ' + cantidad;
-                });
-
-                // Actualiza los inputs "max"
-                document.querySelectorAll('.cantidad-input').forEach(input => {
-                    const id = input.dataset.producto;
-                    const cantidad = data[id] ?? 0;
-                    input.max = cantidad;
-                });
-            });
-    });
-</script>
-@endpush
 
 <script>
-    // Verifica en tiempo real cada input
-    document.querySelectorAll('.cantidad-input').forEach(input => {
-        input.addEventListener('input', function () {
-            const max = parseInt(this.max);
-            const value = parseInt(this.value);
-            const productoId = this.dataset.producto;
-            const errorDiv = document.getElementById(`error-${productoId}`);
+document.getElementById('almacen_origen_id').addEventListener('change', function () {
+    const almacenId = this.value;
+    const contenedor = document.getElementById('contenedor-productos');
 
-            if (value > max) {
-                errorDiv.classList.remove('hidden');
-                this.classList.add('border-red-500');
-            } else {
-                errorDiv.classList.add('hidden');
-                this.classList.remove('border-red-500');
+    if (!almacenId) {
+        contenedor.innerHTML = '<p class="text-gray-500">Selecciona un almacén origen para ver los productos disponibles.</p>';
+        return;
+    }
+
+    fetch(`/traslados/lotes/${almacenId}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log("Lotes recibidos:", data); // 👈 Verifica si el JSON se carga
+
+            contenedor.innerHTML = '';
+
+            if (Object.keys(data).length === 0) {
+                contenedor.innerHTML = '<p class="text-gray-500">No hay productos disponibles en este almacén.</p>';
+                return;
             }
+
+            Object.entries(data).forEach(([productoId, lotes]) => {
+                const productoDiv = document.createElement('div');
+                productoDiv.classList.add('mb-6');
+
+                const productoLabel = document.createElement('label');
+                productoLabel.classList.add('font-semibold', 'text-gray-700');
+                productoLabel.textContent = lotes[0]?.producto ?? 'Producto sin nombre';
+                productoDiv.appendChild(productoLabel);
+
+                lotes.forEach((lote, index) => {
+                    const fila = document.createElement('div');
+                    fila.classList.add('flex', 'items-center', 'gap-4', 'mb-2', 'ml-4');
+
+                    fila.innerHTML = `
+                        <div class="w-1/3 text-sm text-gray-600">
+                            Lote: <strong>${lote.lote}</strong> — Vence: <strong>${lote.fecha_caducidad}</strong>
+                        </div>
+                        <div class="w-1/6 text-sm text-gray-500">Disponible: ${lote.cantidad}</div>
+                        <div class="w-1/6">
+                            <input type="number" name="detalles[${productoId}][${index}][cantidad]" min="0" max="${lote.cantidad}" class="w-full px-2 py-1 border-gray-300 rounded shadow-sm" placeholder="Cantidad" />
+                            <input type="hidden" name="detalles[${productoId}][${index}][lote]" value="${lote.lote}" />
+                            <input type="hidden" name="detalles[${productoId}][${index}][fecha_caducidad]" value="${lote.fecha_caducidad}" />
+                        </div>
+                    `;
+                    productoDiv.appendChild(fila);
+                });
+
+                contenedor.appendChild(productoDiv);
+            });
+        })
+        .catch(err => {
+            console.error("Error al cargar lotes:", err);
+            contenedor.innerHTML = '<p class="text-red-500">Ocurrió un error al obtener los lotes.</p>';
         });
-    });
+});
 </script>
+
