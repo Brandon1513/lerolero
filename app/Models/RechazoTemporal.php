@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class RechazoTemporal extends Model
 {
     use HasFactory;
-    protected $table = 'rechazos_temporales'; // <- agrega esta línea
+
+    protected $table = 'rechazos_temporales';
 
     protected $fillable = [
         'producto_id',
@@ -16,6 +17,8 @@ class RechazoTemporal extends Model
         'cantidad',
         'motivo',
         'fecha',
+        'lote', // 👈 Agrega este campo
+        'fecha_caducidad', // 👈 Agrega este campo
     ];
 
     public function producto()
