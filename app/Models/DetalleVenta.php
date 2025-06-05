@@ -14,7 +14,9 @@ class DetalleVenta extends Model
         'subtotal',
         'almacen_id', // Nuevo campo para llevar control del almacén
         'es_cambio',       // <-- agregar
-        'motivo_cambio'    // <-- agregar
+        'motivo_cambio',   // <-- agregar
+        'lote',          // 👈 ¡Agrega esto!
+        'fecha_caducidad' // 👈 ¡Y esto!
     ];
 
     public function venta()
