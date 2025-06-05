@@ -17,6 +17,7 @@ class RechazoTemporal extends Model
         'cantidad',
         'motivo',
         'fecha',
+        'venta_id', // 👈 Agrega este campo si es necesario para relacionar con una venta
         'lote', // 👈 Agrega este campo
         'fecha_caducidad', // 👈 Agrega este campo
     ];
@@ -29,5 +30,9 @@ class RechazoTemporal extends Model
     public function vendedor()
     {
         return $this->belongsTo(User::class, 'vendedor_id');
+    }
+    public function venta()
+    {
+        return $this->belongsTo(Venta::class);
     }
 }

@@ -48,7 +48,7 @@ Route::middleware('auth:sanctum')->get('/clientes-dia', [ClienteMovilController:
 
 Route::middleware('auth:sanctum')->get('/clientes/{cliente}/ventas', function (\App\Models\Cliente $cliente) {
     return $cliente->ventas()
-        ->with(['cliente', 'detalles.producto']) // Asegúrate de incluir la relación 'cliente'
+        ->with(['cliente', 'detalles.producto', 'rechazos.producto']) // 👈 Incluimos también los rechazos
         ->latest()
         ->get();
 });

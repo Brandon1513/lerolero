@@ -30,7 +30,6 @@ class VentaController extends Controller
         $total = 0;
 
         foreach ($request->productos as $item) {
-            // 1️⃣ Sumamos stock disponible de lotes
             $stockTotal = \App\Models\Inventario::where('almacen_id', $vendedor->almacen->id)
                 ->where('producto_id', $item['producto_id'])
                 ->sum('cantidad');
@@ -44,7 +43,7 @@ class VentaController extends Controller
             $total += $item['cantidad'] * $item['precio_unitario'];
         }
 
-        // 2️⃣ Creamos la venta
+        // ✅ Creamos la venta
         $venta = \App\Models\Venta::create([
             'cliente_id' => $request->cliente_id,
             'vendedor_id' => $vendedor->id,
@@ -53,7 +52,7 @@ class VentaController extends Controller
             'observaciones' => $request->observaciones,
         ]);
 
-        // 3️⃣ Recorremos y descontamos FIFO
+        // ✅ Recorremos y descontamos FIFO
         foreach ($request->productos as $item) {
             $cantidadRestante = $item['cantidad'];
 
@@ -68,10 +67,8 @@ class VentaController extends Controller
 
                 $descontar = min($lote->cantidad, $cantidadRestante);
 
-                // Actualizamos lote
                 $lote->decrement('cantidad', $descontar);
 
-                // Guardamos detalle de la venta con lote
                 \App\Models\DetalleVenta::create([
                     'venta_id' => $venta->id,
                     'producto_id' => $item['producto_id'],
@@ -86,6 +83,11 @@ class VentaController extends Controller
                 $cantidadRestante -= $descontar;
             }
         }
+
+        // ✅ Asociamos los rechazos temporales con la venta
+        \App\Models\RechazoTemporal::where('vendedor_id', $vendedor->id)
+            ->whereNull('venta_id')
+            ->update(['venta_id' => $venta->id]);
 
         DB::commit();
 
@@ -102,5 +104,6 @@ class VentaController extends Controller
         ], 500);
     }
 }
+
 
 }

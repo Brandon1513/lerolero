@@ -28,8 +28,10 @@ class Venta extends Model
     {
         return $this->hasMany(DetalleVenta::class);
     }
-    public function rechazos()
+ public function rechazos()
     {
-        return $this->hasMany(RechazoTemporal::class, 'venta_id'); // O la relación correcta según tu modelo
+        return $this->hasMany(\App\Models\RechazoTemporal::class, 'venta_id');
     }
+
+
 }

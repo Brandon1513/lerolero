@@ -41,6 +41,9 @@ class ClienteMovilController extends Controller
             ->latest()
             ->get();
 
+              // 👇 Mira qué trae exactamente
+    dd($ventas->toArray());
+
         return response()->json($ventas);
     }
 
