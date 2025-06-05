@@ -35,7 +35,14 @@ class ClienteMovilController extends Controller
     public function ventas($id)
     {
         $cliente = \App\Models\Cliente::findOrFail($id);
-        return $cliente->ventas()->with('detalles.producto')->latest()->get();
+
+        $ventas = $cliente->ventas()
+            ->with(['detalles.producto', 'rechazos.producto', 'cliente']) // 👈 cargamos también los productos devueltos y el cliente
+            ->latest()
+            ->get();
+
+        return response()->json($ventas);
     }
+
 
 }
