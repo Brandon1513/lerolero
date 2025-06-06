@@ -33,38 +33,44 @@
                             <!-- Gestionar Jefes -->
                             @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                 <x-dropdown-link :href="route('clientes.index')" class="text-gray-700 hover:bg-gray-200">
-                                    {{ __('Gestionar Clientes') }}
+                                    {{ __('Clientes') }}
                                 </x-dropdown-link>
                                 <x-dropdown-link :href="route('vendedores.index')" class="text-gray-700 hover:bg-gray-200">
-                                    {{ __('Gestionar Vendedores') }}
+                                    {{ __('Vendedores') }}
                                 </x-dropdown-link>
                             @endif
 
                             <!-- Opción "Gestionar Niveles de precio" visible para administrador y recursos_humanos -->
-                            @if (Auth::check())
+                            @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                 <x-dropdown-link :href="route('niveles-precio.index')" class="text-gray-700 hover:bg-gray-200">
-                                    {{ __('Gestionar Niveles de precio') }}
+                                    {{ __('Niveles de precio') }}
                                 </x-dropdown-link>
                             @endif
 
                             <!-- Opción "Gestionar Unidades" solo visible para administrador -->
                             @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                 <x-dropdown-link :href="route('unidades.index')" class="text-gray-700 hover:bg-gray-200">
-                                    {{ __('Gestionar Unidades') }}
+                                    {{ __('Unidades') }}
                                 </x-dropdown-link>
                             @endif
 
                             <!-- Opción "Gestionar Productos" solo visible para administrador -->
                             @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                 <x-dropdown-link :href="route('productos.index')" class="text-gray-700 hover:bg-gray-200">
-                                    {{ __('Gestionar Productos') }}
+                                    {{ __('Productos') }}
                                 </x-dropdown-link>
                             @endif
 
                             <!-- Opción "Gestionar Categorías" solo visible para administrador -->
                             @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                 <x-dropdown-link :href="route('categorias.index')" class="text-gray-700 hover:bg-gray-200">
-                                    {{ __('Gestionar Categorías') }}
+                                    {{ __('Categorías') }}
+                                </x-dropdown-link>
+                            @endif
+                            <!-- Opción "Gestionar Producciones" solo visible para administrador -->
+                            @if (Auth::check() && Auth::user()->hasRole('administrador'))
+                                <x-dropdown-link :href="route('producciones.index')" class="text-gray-700 hover:bg-gray-200">
+                                    {{ __('Producciones') }}
                                 </x-dropdown-link>
                             @endif
                         </x-slot>
@@ -89,10 +95,10 @@
                             <x-slot name="content">
                                 @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                     <x-dropdown-link :href="route('almacenes.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Ver Almacenes') }}
+                                        {{ __('Almacenes') }}
                                     </x-dropdown-link>
                                     <x-dropdown-link :href="route('inventario.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Ver Inventario') }}
+                                        {{ __('Inventario') }}
                                     </x-dropdown-link>
                                     <x-dropdown-link :href="route('traslados.index')" class="text-gray-700 hover:bg-gray-200">
                                         {{ __('Traslados de Inventario') }}
@@ -118,7 +124,7 @@
                             <x-slot name="content">
                                 @if (Auth::check() && Auth::user()->hasRole('administrador'))
                                     <x-dropdown-link :href="route('ventas.index')" class="text-gray-700 hover:bg-gray-200">
-                                        {{ __('Ver ventas') }}
+                                        {{ __(' ventas') }}
                                     </x-dropdown-link>
                                     <x-dropdown-link :href="route('ventas.panel')" class="text-gray-700 hover:bg-gray-200">
                                         {{ __('Panel de Ventas') }}
@@ -198,8 +204,8 @@
         @if (Auth::check())
         <div class="pt-4 pb-1 border-t border-gray-200">
                 <div class="px-4">
-                    <div class="text-base font-medium text-white">{{ Auth::user()->name }}</div>
-                    <div class="text-sm font-medium text-gray-300">{{ Auth::user()->email }}</div>
+                    <div class="text-base font-medium">{{ Auth::user()->name }}</div>
+                    <div class="text-sm font-medium">{{ Auth::user()->email }}</div>
                 </div>
                 <div class="mt-3 space-y-1">
                     <x-responsive-nav-link :href="route('profile.edit')" >
@@ -267,6 +273,11 @@
                     @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
                         <x-responsive-nav-link :href="route('cierres.index')" :active="request()->routeIs('cierres.index')" >
                         {{ __('Cierres de Venta') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('producciones.index')" :active="request()->routeIs('producciones.index')" >
+                        {{ __('Producciones') }}
                         </x-responsive-nav-link>
                     @endif 
                     

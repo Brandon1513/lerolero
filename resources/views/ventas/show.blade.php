@@ -14,6 +14,7 @@
             <p><strong>Total:</strong> ${{ number_format($venta->total, 2) }}</p>
         </div>
 
+        {{-- Productos Vendidos --}}
         <div class="mb-8 overflow-hidden bg-white rounded-lg shadow">
             <h3 class="px-6 py-4 text-lg font-bold bg-gray-100">Productos Vendidos</h3>
             <table class="w-full text-sm border border-collapse">
@@ -24,6 +25,8 @@
                         <th class="px-4 py-2 border">Precio Unitario</th>
                         <th class="px-4 py-2 border">Subtotal</th>
                         <th class="px-4 py-2 border">Almacén</th>
+                        <th class="px-4 py-2 border">Lote</th>
+                        <th class="px-4 py-2 border">Caducidad</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -34,15 +37,19 @@
                             <td class="px-4 py-2 border">${{ number_format($detalle->precio_unitario, 2) }}</td>
                             <td class="px-4 py-2 border">${{ number_format($detalle->subtotal, 2) }}</td>
                             <td class="px-4 py-2 border">{{ $detalle->almacen->nombre ?? 'N/A' }}</td>
+                            <td class="px-4 py-2 border">{{ $detalle->lote ?? 'N/D' }}</td>
+                            <td class="px-4 py-2 border">{{ $detalle->fecha_caducidad ?? 'N/D' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
 
-        @if ($venta->detalles->where('es_cambio', true)->count() > 0)
-            <div class="overflow-hidden bg-white rounded-lg shadow">
-                <h3 class="px-6 py-4 text-lg font-bold bg-yellow-100">Productos en Cambio</h3>
+        {{-- Productos Devueltos / Cambios --}}
+        <div class="overflow-hidden bg-white rounded-lg shadow">
+            <h3 class="px-6 py-4 text-lg font-bold bg-yellow-100">Productos Devueltos / Cambios</h3>
+
+            @if ($venta->detalles->where('es_cambio', true)->count() > 0)
                 <table class="w-full text-sm border border-collapse">
                     <thead class="text-left bg-yellow-100">
                         <tr>
@@ -50,6 +57,8 @@
                             <th class="px-4 py-2 border">Cantidad</th>
                             <th class="px-4 py-2 border">Motivo de Cambio</th>
                             <th class="px-4 py-2 border">Almacén</th>
+                            <th class="px-4 py-2 border">Lote</th>
+                            <th class="px-4 py-2 border">Caducidad</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -59,12 +68,15 @@
                                 <td class="px-4 py-2 border">{{ $detalle->cantidad }}</td>
                                 <td class="px-4 py-2 border">{{ ucfirst($detalle->motivo_cambio) ?? '-' }}</td>
                                 <td class="px-4 py-2 border">{{ $detalle->almacen->nombre ?? 'N/A' }}</td>
+                                <td class="px-4 py-2 border">{{ $detalle->lote ?? 'N/D' }}</td>
+                                <td class="px-4 py-2 border">{{ $detalle->fecha_caducidad ?? 'N/D' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
-            </div>
-        @endif
-
+            @else
+                <p class="px-6 py-4 text-gray-600">No hay productos devueltos en esta venta.</p>
+            @endif
+        </div>
     </div>
 </x-app-layout>

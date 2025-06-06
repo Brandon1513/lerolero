@@ -35,4 +35,9 @@ class RechazoTemporal extends Model
     {
         return $this->belongsTo(Venta::class);
     }
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class);
+    }
+
 }

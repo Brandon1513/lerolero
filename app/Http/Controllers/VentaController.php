@@ -117,10 +117,22 @@ public function store(Request $request)
 }
 
     public function show(Venta $venta)
-    {
-        $venta->load(['cliente', 'vendedor', 'detalles.producto', 'detalles.almacen']);
-        return view('ventas.show', compact('venta'));
-    }
+{
+    // Carga todas las relaciones necesarias de la venta:
+    $venta->load([
+        'cliente',
+        'vendedor',
+        'detalles.producto',
+        'detalles.almacen',
+        'rechazos.producto',
+        // Asegúrate de que esta tabla 'rechazos_temporales' tenga la columna almacen_id
+        'rechazos.almacen'
+    ]);
+
+    return view('ventas.show', compact('venta'));
+}
+
+
     public function panel(Request $request)
     {
         $vendedores = \App\Models\User::role('vendedor')->get();

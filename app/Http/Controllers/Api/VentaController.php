@@ -29,6 +29,7 @@ class VentaController extends Controller
     try {
         $total = 0;
 
+        // Verificamos stock y calculamos el total
         foreach ($request->productos as $item) {
             $stockTotal = \App\Models\Inventario::where('almacen_id', $vendedor->almacen->id)
                 ->where('producto_id', $item['producto_id'])
@@ -84,10 +85,28 @@ class VentaController extends Controller
             }
         }
 
-        // ✅ Asociamos los rechazos temporales con la venta
+        // ✅ Asociamos los rechazos temporales con la venta y asignamos el almacén de rechazos
         \App\Models\RechazoTemporal::where('vendedor_id', $vendedor->id)
             ->whereNull('venta_id')
-            ->update(['venta_id' => $venta->id]);
+            ->update([
+                'venta_id' => $venta->id,
+                'almacen_id' => 3 // Asignamos el almacén de rechazos
+            ]);
+
+        // ✅ Sumamos las cantidades de los rechazos al inventario del almacén de rechazos
+        $rechazos = \App\Models\RechazoTemporal::where('venta_id', $venta->id)->get();
+
+        foreach ($rechazos as $rechazo) {
+            \App\Models\Inventario::updateOrCreate(
+                [
+                    'producto_id' => $rechazo->producto_id,
+                    'almacen_id' => 3
+                ],
+                [
+                    'cantidad' => DB::raw('cantidad + ' . $rechazo->cantidad)
+                ]
+            );
+        }
 
         DB::commit();
 
@@ -104,6 +123,7 @@ class VentaController extends Controller
         ], 500);
     }
 }
+
 
 
 }
