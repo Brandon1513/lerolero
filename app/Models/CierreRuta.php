@@ -11,16 +11,17 @@ class CierreRuta extends Model
     protected $table = 'cierres_ruta'; // 👈 Esto soluciona el problema
 
     protected $fillable = [
-        'vendedor_id',
-        'fecha',
-        'total_ventas',
         'total_efectivo',
+        'observaciones',
+        'estatus',
+        'cerrado_por',
         'inventario_inicial',
         'inventario_final',
         'cambios',
-        'observaciones',
-        'estatus',
-        'cerrado_por', // <- agregar aquí
+        'traslado_id',
+        'total_ventas',
+        'vendedor_id',
+        'fecha'
     ];
 
     protected $casts = [

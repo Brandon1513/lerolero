@@ -85,28 +85,29 @@ class VentaController extends Controller
             }
         }
 
-        // ✅ Asociamos los rechazos temporales con la venta y asignamos el almacén de rechazos
+        // ✅ Asociamos los rechazos temporales con la venta y el almacén de rechazos
         \App\Models\RechazoTemporal::where('vendedor_id', $vendedor->id)
             ->whereNull('venta_id')
             ->update([
                 'venta_id' => $venta->id,
-                'almacen_id' => 3 // Asignamos el almacén de rechazos
+                'almacen_id' => 3
             ]);
 
-        // ✅ Sumamos las cantidades de los rechazos al inventario del almacén de rechazos
+        // ✅ Actualizamos inventario de rechazos con lote y fecha de caducidad
         $rechazos = \App\Models\RechazoTemporal::where('venta_id', $venta->id)->get();
 
         foreach ($rechazos as $rechazo) {
-            \App\Models\Inventario::updateOrCreate(
-                [
-                    'producto_id' => $rechazo->producto_id,
-                    'almacen_id' => 3
-                ],
-                [
-                    'cantidad' => DB::raw('cantidad + ' . $rechazo->cantidad)
-                ]
-            );
+            $inventario = \App\Models\Inventario::firstOrNew([
+                'producto_id' => $rechazo->producto_id,
+                'almacen_id' => 3
+            ]);
+
+            $inventario->cantidad = ($inventario->cantidad ?? 0) + $rechazo->cantidad;
+            $inventario->lote = $rechazo->lote;
+            $inventario->fecha_caducidad = $rechazo->fecha_caducidad;
+            $inventario->save();
         }
+
 
         DB::commit();
 

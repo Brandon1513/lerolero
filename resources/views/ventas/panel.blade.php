@@ -40,6 +40,7 @@
             <table class="w-full text-sm border border-collapse">
                 <thead class="text-left bg-gray-100">
                     <tr>
+                        <th class="px-4 py-2 border">ID</th>
                         <th class="px-4 py-2 border">Fecha</th>
                         <th class="px-4 py-2 border">Cliente</th>
                         <th class="px-4 py-2 border">Vendedor</th>
@@ -50,6 +51,7 @@
                 <tbody>
                     @forelse ($ventas as $venta)
                         <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2 border">{{ $venta->id }}</td>
                             <td class="px-4 py-2 border">{{ $venta->fecha }}</td>
                             <td class="px-4 py-2 border">{{ $venta->cliente->nombre }}</td>
                             <td class="px-4 py-2 border">{{ $venta->vendedor->name }}</td>

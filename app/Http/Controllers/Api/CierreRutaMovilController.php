@@ -13,7 +13,7 @@ use App\Http\Controllers\Controller;
 
 class CierreRutaMovilController extends Controller
 {
-    public function solicitar(Request $request)
+   public function solicitar(Request $request)
 {
     $vendedor = auth()->user();
     $hoy = now()->toDateString();
@@ -28,7 +28,7 @@ class CierreRutaMovilController extends Controller
         return response()->json(['message' => 'Almacén no encontrado.'], 404);
     }
 
-    // 1. Inventario final desde su almacén
+    // 1. Inventario final desde su almacén (con lote y caducidad)
     $inventarioFinal = Inventario::where('almacen_id', $almacenVendedor->id)
         ->get()
         ->map(function ($item) {
@@ -36,10 +36,12 @@ class CierreRutaMovilController extends Controller
                 'producto_id' => $item->producto_id,
                 'nombre' => optional($item->producto)->nombre,
                 'cantidad' => $item->cantidad,
+                'lote' => $item->lote,
+                'fecha_caducidad' => $item->fecha_caducidad,
             ];
         })->toArray();
 
-    // 2. Cambios desde tabla rechazos
+    // 2. Cambios desde tabla rechazos (con lote y caducidad)
     $rechazos = RechazoTemporal::where('vendedor_id', $vendedor->id)->get();
     $cambios = $rechazos->map(function ($item) {
         return [
@@ -47,6 +49,8 @@ class CierreRutaMovilController extends Controller
             'nombre' => optional($item->producto)->nombre,
             'cantidad' => $item->cantidad,
             'motivo' => $item->motivo,
+            'lote' => $item->lote,
+            'fecha_caducidad' => $item->fecha_caducidad,
         ];
     })->toArray();
 

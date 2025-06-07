@@ -84,6 +84,8 @@
                         <tr>
                             <th class="px-4 py-2 border">Producto</th>
                             <th class="px-4 py-2 border">Cantidad</th>
+                            <th class="px-4 py-2 border">Lote</th>
+                            <th class="px-4 py-2 border">Caducidad</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -91,6 +93,8 @@
                             <tr>
                                 <td class="px-4 py-2 border">{{ $producto['nombre'] }}</td>
                                 <td class="px-4 py-2 border">{{ $producto['cantidad'] }}</td>
+                                <td class="px-4 py-2 border">{{ $producto['lote'] ?? 'N/D' }}</td>
+                                <td class="px-4 py-2 border">{{ $producto['fecha_caducidad'] ?? 'N/D' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -110,6 +114,8 @@
                             <th class="px-4 py-2 border">Producto</th>
                             <th class="px-4 py-2 border">Cantidad</th>
                             <th class="px-4 py-2 border">Motivo</th>
+                            <th class="px-4 py-2 border">Lote</th>
+                            <th class="px-4 py-2 border">Caducidad</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -118,6 +124,8 @@
                                 <td class="px-4 py-2 border">{{ $cambio['nombre'] }}</td>
                                 <td class="px-4 py-2 border">{{ $cambio['cantidad'] }}</td>
                                 <td class="px-4 py-2 border">{{ ucfirst($cambio['motivo']) }}</td>
+                                <td class="px-4 py-2 border">{{ $cambio['lote'] ?? 'N/D' }}</td>
+                                <td class="px-4 py-2 border">{{ $cambio['fecha_caducidad'] ?? 'N/D' }}</td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -46,37 +46,36 @@
         </div>
 
         {{-- Productos Devueltos / Cambios --}}
-        <div class="overflow-hidden bg-white rounded-lg shadow">
-            <h3 class="px-6 py-4 text-lg font-bold bg-yellow-100">Productos Devueltos / Cambios</h3>
+<div class="overflow-hidden bg-white rounded-lg shadow">
+    <h3 class="px-6 py-4 text-lg font-bold bg-yellow-100">Productos Devueltos / Cambios</h3>
 
-            @if ($venta->detalles->where('es_cambio', true)->count() > 0)
-                <table class="w-full text-sm border border-collapse">
-                    <thead class="text-left bg-yellow-100">
-                        <tr>
-                            <th class="px-4 py-2 border">Producto</th>
-                            <th class="px-4 py-2 border">Cantidad</th>
-                            <th class="px-4 py-2 border">Motivo de Cambio</th>
-                            <th class="px-4 py-2 border">Almacén</th>
-                            <th class="px-4 py-2 border">Lote</th>
-                            <th class="px-4 py-2 border">Caducidad</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($venta->detalles->where('es_cambio', true) as $detalle)
-                            <tr>
-                                <td class="px-4 py-2 border">{{ $detalle->producto->nombre }}</td>
-                                <td class="px-4 py-2 border">{{ $detalle->cantidad }}</td>
-                                <td class="px-4 py-2 border">{{ ucfirst($detalle->motivo_cambio) ?? '-' }}</td>
-                                <td class="px-4 py-2 border">{{ $detalle->almacen->nombre ?? 'N/A' }}</td>
-                                <td class="px-4 py-2 border">{{ $detalle->lote ?? 'N/D' }}</td>
-                                <td class="px-4 py-2 border">{{ $detalle->fecha_caducidad ?? 'N/D' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @else
-                <p class="px-6 py-4 text-gray-600">No hay productos devueltos en esta venta.</p>
-            @endif
-        </div>
-    </div>
+    @if ($venta->rechazos->count() > 0)
+        <table class="w-full text-sm border border-collapse">
+            <thead class="text-left bg-yellow-100">
+                <tr>
+                    <th class="px-4 py-2 border">Producto</th>
+                    <th class="px-4 py-2 border">Cantidad</th>
+                    <th class="px-4 py-2 border">Motivo</th>
+                    <th class="px-4 py-2 border">Almacén</th>
+                    <th class="px-4 py-2 border">Lote</th>
+                    <th class="px-4 py-2 border">Caducidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($venta->rechazos as $rechazo)
+                    <tr>
+                        <td class="px-4 py-2 border">{{ $rechazo->producto->nombre ?? '-' }}</td>
+                        <td class="px-4 py-2 border">{{ $rechazo->cantidad }}</td>
+                        <td class="px-4 py-2 border">{{ ucfirst($rechazo->motivo) ?? '-' }}</td>
+                        <td class="px-4 py-2 border">{{ $rechazo->almacen->nombre ?? 'N/A' }}</td>
+                        <td class="px-4 py-2 border">{{ $rechazo->lote ?? 'N/D' }}</td>
+                        <td class="px-4 py-2 border">{{ $rechazo->fecha_caducidad ?? 'N/D' }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @else
+        <p class="px-6 py-4 text-gray-600">No hay productos devueltos en esta venta.</p>
+    @endif
+</div>
 </x-app-layout>

@@ -20,11 +20,11 @@
         </div>
 
         <!-- Filtros -->
-        <form method="GET" action="{{ route('ventas.index') }}" class="mb-6 flex flex-wrap items-end gap-4">
+        <form method="GET" action="{{ route('ventas.index') }}" class="flex flex-wrap items-end gap-4 mb-6">
             <!-- Vendedor -->
             <div>
                 <x-input-label for="vendedor_id" value="Vendedor" />
-                <select name="vendedor_id" id="vendedor_id" class="block w-full mt-1 rounded-md border-gray-300 shadow-sm">
+                <select name="vendedor_id" id="vendedor_id" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm">
                     <option value="">Todos</option>
                     @foreach ($vendedores as $v)
                         <option value="{{ $v->id }}" {{ request('vendedor_id') == $v->id ? 'selected' : '' }}>
@@ -37,7 +37,7 @@
             <!-- Cliente -->
             <div>
                 <x-input-label for="cliente_id" value="Cliente" />
-                <select name="cliente_id" id="cliente_id" class="block w-full mt-1 rounded-md border-gray-300 shadow-sm">
+                <select name="cliente_id" id="cliente_id" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm">
                     <option value="">Todos</option>
                     @foreach ($clientes as $c)
                         <option value="{{ $c->id }}" {{ request('cliente_id') == $c->id ? 'selected' : '' }}>
@@ -63,7 +63,7 @@
             <div class="flex gap-2 mt-1">
                 <x-primary-button class="h-[42px]">Filtrar</x-primary-button>
                 <a href="{{ route('ventas.index') }}"
-                   class="px-4 py-2 text-sm bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-md">
+                   class="px-4 py-2 text-sm text-gray-800 bg-gray-300 rounded-md hover:bg-gray-400">
                     Limpiar
                 </a>
             </div>
@@ -74,6 +74,7 @@
             <table class="w-full text-sm border border-collapse">
                 <thead class="text-left bg-gray-100">
                     <tr>
+                        <th class="px-4 py-2 border">ID</th>
                         <th class="px-4 py-2 border">Fecha</th>
                         <th class="px-4 py-2 border">Cliente</th>
                         <th class="px-4 py-2 border">Vendedor</th>
@@ -85,6 +86,7 @@
                 <tbody>
                     @forelse ($ventas as $venta)
                         <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2 border">{{ $venta->id }}</td>
                             <td class="px-4 py-2 border">{{ $venta->fecha }}</td>
                             <td class="px-4 py-2 border">{{ $venta->cliente->nombre }}</td>
                             <td class="px-4 py-2 border">{{ $venta->vendedor->name }}</td>
