@@ -41,5 +41,12 @@ class Producto extends Model
     {
         return $this->imagen ? asset('storage/' . $this->imagen) : null;
     }
+    public function promociones()
+    {
+        return $this->belongsToMany(Promocion::class, 'promocion_producto')
+                    ->withPivot('cantidad')
+                    ->withTimestamps();
+    }
+
 
 }

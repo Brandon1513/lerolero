@@ -9,8 +9,7 @@ use App\Http\Controllers\Api\InventarioMovilController;
 use App\Http\Controllers\Api\RechazoTemporalController;
 use App\Http\Controllers\Api\VentaController; // este sí está en Api
 use App\Http\Controllers\Api\AuthController; // si lo tienes en esta ruta
-
-
+use App\Http\Controllers\Api\PromocionController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -59,3 +58,6 @@ Route::middleware('auth:sanctum')->post('/solicitar-cierre', [\App\Http\Controll
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/rechazos', [RechazoTemporalController::class, 'store']);
 });
+
+//Promociones
+Route::middleware('auth:sanctum')->get('/promociones',[PromocionController::class, 'index']);

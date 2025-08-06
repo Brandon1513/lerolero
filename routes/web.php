@@ -10,6 +10,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\VendedorController;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\NivelPrecioController;
 use App\Http\Controllers\UnidadMedidaController;
@@ -108,15 +109,18 @@ Route::prefix('admin')->middleware(['auth', 'role:administrador'])->group(functi
     Route::resource('cierres', \App\Http\Controllers\Admin\CierreRutaController::class)->only(['index', 'show', 'update']);
 });
 
+//Promociones
+Route::middleware(['auth', 'role:administrador'])->group(function () {
+    Route::resource('promociones', PromocionController::class)->parameters([
+    'promociones' => 'promocion'
+]);
 
-// Rutas públicas del sitio web
+    Route::patch('/promociones/{promocion}/toggle', [PromocionController::class, 'toggle'])->name('promociones.toggle');
+
+});
+
+//public
 Route::get('/', [PublicController::class, 'home'])->name('public.home');
-Route::get('/catalogo', [PublicController::class, 'catalog'])->name('public.catalog');
-Route::get('/nosotros', [PublicController::class, 'about'])->name('public.about');
-Route::get('/contacto', [PublicController::class, 'contact'])->name('public.contact');
-
-
-
 
 // Producciones
 Route::middleware(['auth', 'role:administrador'])->group(function () {

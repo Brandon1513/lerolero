@@ -73,6 +73,11 @@
                                     {{ __('Producciones') }}
                                 </x-dropdown-link>
                             @endif
+                            @if (Auth::check() && Auth::user()->hasRole('administrador'))
+                                <x-dropdown-link :href="route('promociones.index')" class="text-gray-700 hover:bg-gray-200">
+                                    {{ __('Promociones') }}
+                                </x-dropdown-link>
+                            @endif
                         </x-slot>
 
                         </x-dropdown>
