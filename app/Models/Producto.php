@@ -43,8 +43,8 @@ class Producto extends Model
     }
     public function promociones()
     {
-        return $this->belongsToMany(Promocion::class, 'promocion_producto')
-                    ->withPivot('cantidad')
+        return $this->belongsToMany(Promocion::class, 'promocion_producto', 'producto_id', 'promocion_id')
+                ->withPivot('cantidad')
                     ->withTimestamps();
     }
 

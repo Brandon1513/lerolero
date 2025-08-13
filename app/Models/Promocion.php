@@ -22,8 +22,13 @@ class Promocion extends Model
 
     public function productos()
     {
-        return $this->belongsToMany(Producto::class, 'promocion_producto')
+        return $this->belongsToMany(Producto::class, 'promocion_producto', 'promocion_id', 'producto_id')
                     ->withPivot('cantidad')
                     ->withTimestamps();
     }
+    public function ventas()
+    {
+        return $this->hasMany(\App\Models\VentaPromocion::class);
+    }
+
 }

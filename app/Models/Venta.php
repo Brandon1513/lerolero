@@ -28,10 +28,17 @@ class Venta extends Model
     {
         return $this->hasMany(DetalleVenta::class);
     }
- public function rechazos()
+    public function rechazos()
     {
         return $this->hasMany(\App\Models\RechazoTemporal::class, 'venta_id');
     }
+
+    // 👇 tabla venta_promociones: {id, venta_id, promocion_id, cantidad, precio_promocion, ...}
+    public function promociones()
+    {
+        return $this->hasMany(\App\Models\VentaPromocion::class);
+    }
+
 
 
 }
