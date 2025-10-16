@@ -19,10 +19,10 @@ class ProductoNivelPrecio extends Model
         return $this->belongsTo(Producto::class);
     }
 
-    public function nivelPrecio()
-    {
-        return $this->belongsTo(NivelPrecio::class);
-    }
+    public function nivelPrecio()  
+    { 
+        return $this->belongsTo(NivelPrecio::class, 'nivel_precio_id');
+     }
     public function preciosPorNivel()
 {
     return $this->hasMany(ProductoNivelPrecio::class);

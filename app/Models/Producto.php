@@ -10,19 +10,20 @@ use App\Models\NivelPrecio;
 
 class Producto extends Model
 {
-    protected $fillable = [
+   protected $fillable = [
         'nombre',
         'marca',
         'categoria_id',
-        'unidad_medida_id',
         'precio',
+        'unidad_medida_id',
         'imagen',
+        'activo',
     ];
     public function nivelesPrecio()
     {
-    return $this->belongsToMany(NivelPrecio::class, 'producto_nivel_precio')
-                ->withPivot('precio')
-                ->withTimestamps();
+        return $this->belongsToMany(NivelPrecio::class, 'producto_nivel_precio', 'producto_id', 'nivel_precio_id')
+                    ->withPivot('precio')
+                    ->withTimestamps();
     }
     public function categoria()
     {
@@ -33,9 +34,9 @@ class Producto extends Model
     {
         return $this->belongsTo(UnidadMedida::class);
     }
-    public function preciosPorNivel()
+    public function preciosNivel()
     {
-        return $this->hasMany(ProductoNivelPrecio::class);
+        return $this->hasMany(ProductoNivelPrecio::class, 'producto_id');
     }
     public function getImagenUrlAttribute()
     {

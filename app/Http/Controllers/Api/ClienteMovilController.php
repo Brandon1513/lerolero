@@ -8,17 +8,39 @@ use App\Models\Cliente;
 
 class ClienteMovilController extends Controller
 {
-    public function index(Request $request)
+     public function index(Request $request)
     {
         $user = $request->user();
-        $diaActual = now()->locale('es')->isoFormat('dddd'); // Lunes, Martes, etc.
+        $diaActual = now()->locale('es')->isoFormat('dddd'); // "lunes"
+        $diaTitulo = ucfirst($diaActual);                    // "Lunes"
 
-        $clientes = Cliente::where('asignado_a', $user->id)
-                        ->whereJsonContains('dias_visita', ucfirst($diaActual))
-                        ->with('nivelPrecio')
-                        ->get();
+        $q = Cliente::query()
+            ->where('asignado_a', $user->id)
+            ->with(['nivelPrecio:id,nombre'])
+            ->orderBy('nombre');
 
-        return response()->json($clientes);
+        if (!$request->boolean('all')) {
+            $q->whereJsonContains('dias_visita', $diaTitulo);
+        }
+
+        // Solo campos necesarios
+        $clientes = $q->get(['id','nombre','telefono','latitud','longitud','nivel_precio_id']);
+
+        $payload = $clientes->map(function ($c) {
+            return [
+                'id'        => $c->id,
+                'nombre'    => $c->nombre,
+                'telefono'  => $c->telefono,
+                'latitud'   => $c->latitud,
+                'longitud'  => $c->longitud,
+                // 👇 clave exactamente como la app la espera
+                'nivel_precio' => $c->nivelPrecio
+                    ? ['id' => $c->nivelPrecio->id, 'nombre' => $c->nivelPrecio->nombre]
+                    : null,
+            ];
+        })->values();
+
+        return response()->json($payload);
     }
     public function delDia(Request $request)
     {

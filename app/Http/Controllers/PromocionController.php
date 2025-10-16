@@ -10,7 +10,11 @@ class PromocionController extends Controller
 {
     public function index()
     {
-        $promociones = Promocion::with('productos')->latest()->paginate(10);
+        $promociones = Promocion::with('productos')
+            ->withCount('productos')
+            ->latest()
+            ->paginate(10);
+
         return view('promociones.index', compact('promociones'));
     }
 

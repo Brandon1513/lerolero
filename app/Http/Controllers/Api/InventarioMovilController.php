@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Inventario;
 use App\Models\Almacen;
+use App\Models\Cliente;
+use App\Models\ProductoNivelPrecio;
 
 class InventarioMovilController extends Controller
 {
@@ -13,34 +15,59 @@ class InventarioMovilController extends Controller
     {
         $user = $request->user();
 
-        // Buscar el almacén del usuario autenticado
+        // 1) Almacén del vendedor
         $almacen = Almacen::where('user_id', $user->id)->first();
-
         if (!$almacen) {
             return response()->json(['message' => 'Almacén no asignado'], 404);
         }
 
-        // Obtener el inventario por lote, con fecha de caducidad
+        // 2) Nivel de precio del cliente (opcional)
+        $clienteId = $request->query('cliente_id');
+        $nivelId   = optional(Cliente::find($clienteId))->nivel_precio_id;
+
+        // 3) Trae inventario por lote (con producto) ordenado FIFO por caducidad
         $inventario = Inventario::where('almacen_id', $almacen->id)
             ->where('cantidad', '>', 0)
-            ->with('producto')
+            ->with(['producto' => function ($q) {
+                // Traemos solo lo necesario del producto
+                $q->select('id', 'nombre', 'precio', 'imagen');
+            }])
             ->orderBy('producto_id')
             ->orderBy('fecha_caducidad')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'producto_id' => $item->producto_id,
-                    'producto' => [
-                        'nombre' => $item->producto->nombre,
-                        'precio' => $item->producto->precio,  // <-- Agregado
-                        'imagen_url' => $item->producto->imagen_url,
-                    ],
-                    'lote' => $item->lote,
-                    'fecha_caducidad' => $item->fecha_caducidad,
-                    'cantidad' => $item->cantidad,
-                ];
-            });
+            ->get();
 
-        return response()->json($inventario);
+        // 4) Si hay nivel, precargamos TODOS los precios por nivel en UNA consulta
+        $preciosPorNivel = collect();
+        if ($nivelId) {
+            $productoIds = $inventario->pluck('producto_id')->unique()->values();
+            if ($productoIds->isNotEmpty()) {
+                $preciosPorNivel = ProductoNivelPrecio::whereIn('producto_id', $productoIds)
+                    ->where('nivel_precio_id', $nivelId)
+                    ->pluck('precio', 'producto_id'); // [producto_id => precio]
+            }
+        }
+
+        // 5) Armamos la respuesta sin N+1
+        $payload = $inventario->map(function ($item) use ($nivelId, $preciosPorNivel) {
+            $precioBase     = (float) ($item->producto->precio ?? 0);
+            $precioCliente  = $nivelId ? optional($preciosPorNivel)[$item->producto_id] ?? null : null;
+
+            return [
+                'producto_id' => $item->producto_id,
+                'producto' => [
+                    'id'             => $item->producto->id,
+                    'nombre'         => $item->producto->nombre,
+                    'precio'         => $precioBase,          // precio base (global)
+                    'precio_cliente' => $precioCliente ? (float)$precioCliente : null, // precio por nivel (si existe)
+                    // Si tu modelo Producto ya expone accessor getImagenUrlAttribute(), mantiene imagen_url.
+                    'imagen_url'     => $item->producto->imagen_url ?? $item->producto->imagen,
+                ],
+                'lote'            => $item->lote,
+                'fecha_caducidad' => $item->fecha_caducidad,
+                'cantidad'        => $item->cantidad,
+            ];
+        })->values();
+
+        return response()->json($payload);
     }
 }

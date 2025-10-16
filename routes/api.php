@@ -61,3 +61,24 @@ Route::middleware('auth:sanctum')->group(function () {
 
 //Promociones
 Route::middleware('auth:sanctum')->get('/promociones',[PromocionController::class, 'index']);
+
+
+Route::middleware('auth:sanctum')->get('/_debug/clientes', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+
+    // mismos filtros que usas en index(), pero sin mapear nada
+    $diaActual = now()->locale('es')->isoFormat('dddd');
+    $diaTitulo = ucfirst($diaActual);
+
+    $q = \App\Models\Cliente::query()
+        ->where('asignado_a', $user->id)
+        ->with(['nivelPrecio:id,nombre'])
+        ->orderBy('nombre');
+
+    if (!$request->boolean('all')) {
+        $q->whereJsonContains('dias_visita', $diaTitulo);
+    }
+
+    // devolvemos TAL CUAL lo que saca Eloquent
+    return $q->get(['id','nombre','telefono','latitud','longitud','nivel_precio_id']);
+});

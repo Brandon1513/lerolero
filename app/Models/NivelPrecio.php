@@ -13,7 +13,9 @@ class NivelPrecio extends Model
 
     public function productos()
     {
-        return $this->hasMany(ProductoNivelPrecio::class);
+        return $this->belongsToMany(Producto::class, 'producto_nivel_precio', 'nivel_precio_id', 'producto_id')
+                    ->withPivot('precio')
+                    ->withTimestamps();
     }
 }
 
