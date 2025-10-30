@@ -18,14 +18,14 @@
                         @csrf
                         @method('PUT')
 
-                        <!-- Nombre -->
+                        {{-- DATOS GENERALES --}}
                         <div class="mb-4">
                             <x-input-label for="nombre" :value="__('Nombre')" />
-                            <x-text-input id="nombre" name="nombre" type="text" class="block w-full mt-1"
-                                :value="old('nombre', $cliente->nombre)" required autofocus />
+                            <x-text-input id="nombre" name="nombre" type="text"
+                                class="block w-full mt-1"
+                                :value="old('nombre', $cliente->nombre)" required />
                             <x-input-error :messages="$errors->get('nombre')" class="mt-2" />
                         </div>
-
                         <!-- Teléfono -->
                         <div class="mb-4">
                             <x-input-label for="telefono" :value="__('Teléfono')" />
@@ -102,21 +102,28 @@
                             </select>
                             <x-input-error :messages="$errors->get('nivel_precio_id')" class="mt-2" />
                         </div>
-                        <!-- Mapa interactivo -->
+                        {{-- MAPA --}}
                         <div id="map" style="height: 300px;" class="my-4 rounded shadow"></div>
 
-                        <!-- Latitud -->
+                        <button type="button" id="btnUbicacionActual"
+                            class="px-4 py-2 mb-3 text-white bg-blue-600 rounded hover:bg-blue-700">
+                            📍 Usar mi ubicación actual
+                        </button>
+
+                        {{-- LATITUD --}}
                         <div class="mb-4">
                             <x-input-label for="latitud" :value="__('Latitud')" />
-                            <x-text-input id="latitud" name="latitud" type="text" class="block w-full mt-1"
+                            <x-text-input id="latitud" name="latitud" type="text"
+                                class="block w-full mt-1"
                                 :value="old('latitud', $cliente->latitud)" placeholder="Ej. 20.6765" />
                             <x-input-error :messages="$errors->get('latitud')" class="mt-2" />
                         </div>
 
-                        <!-- Longitud -->
+                        {{-- LONGITUD --}}
                         <div class="mb-4">
                             <x-input-label for="longitud" :value="__('Longitud')" />
-                            <x-text-input id="longitud" name="longitud" type="text" class="block w-full mt-1"
+                            <x-text-input id="longitud" name="longitud" type="text"
+                                class="block w-full mt-1"
                                 :value="old('longitud', $cliente->longitud)" placeholder="Ej. -103.3472" />
                             <x-input-error :messages="$errors->get('longitud')" class="mt-2" />
                         </div>
@@ -141,7 +148,7 @@
                             </div>
                             <x-input-error :messages="$errors->get('dias_visita')" class="mt-2" />
                         </div>
-                        <!-- Botón -->
+
                         <div class="flex justify-end mt-4">
                             <x-primary-button class="ml-4">
                                 {{ __('Actualizar Cliente') }}
@@ -155,42 +162,74 @@
         </div>
     </div>
 </x-app-layout>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const initialLat = parseFloat(document.getElementById('latitud').value) || 20.6765;
-            const initialLng = parseFloat(document.getElementById('longitud').value) || -103.3472;
 
-            const map = L.map('map').setView([initialLat, initialLng], 14);
+<script>
+document.addEventListener("DOMContentLoaded", function () {
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+    const initialLat = parseFloat(document.getElementById('latitud').value) || 20.6765;
+    const initialLng = parseFloat(document.getElementById('longitud').value) || -103.3472;
 
-            const marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+    // Crear mapa
+    const map = L.map('map').setView([initialLat, initialLng], 14);
 
-            marker.on('dragend', function (e) {
-                const { lat, lng } = e.target.getLatLng();
-                document.getElementById('latitud').value = lat.toFixed(7);
-                document.getElementById('longitud').value = lng.toFixed(7);
-            });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-            map.on('click', function (e) {
-                const { lat, lng } = e.latlng;
-                marker.setLatLng([lat, lng]);
-                document.getElementById('latitud').value = lat.toFixed(7);
-                document.getElementById('longitud').value = lng.toFixed(7);
-            });
+    // Marker arrastrable
+    let marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
 
-            L.Control.geocoder({
-                defaultMarkGeocode: false
-            })
-            .on('markgeocode', function (e) {
-                const latlng = e.geocode.center;
-                map.setView(latlng, 17);
+    // Cuando se arrastra el marker
+    marker.on('dragend', function (e) {
+        const { lat, lng } = e.target.getLatLng();
+        document.getElementById('latitud').value = lat.toFixed(7);
+        document.getElementById('longitud').value = lng.toFixed(7);
+    });
+
+    // Click en el mapa para mover marker
+    map.on('click', function (e) {
+        const { lat, lng } = e.latlng;
+        marker.setLatLng([lat, lng]);
+        document.getElementById('latitud').value = lat.toFixed(7);
+        document.getElementById('longitud').value = lng.toFixed(7);
+    });
+
+    // Buscador de direcciones
+    L.Control.geocoder({ defaultMarkGeocode: false })
+        .on('markgeocode', function (e) {
+            const latlng = e.geocode.center;
+            marker.setLatLng(latlng);
+            map.setView(latlng, 17);
+            document.getElementById('latitud').value = latlng.lat.toFixed(7);
+            document.getElementById('longitud').value = latlng.lng.toFixed(7);
+        })
+        .addTo(map);
+
+    // 📍 Botón Ubicación Actual
+    document.getElementById('btnUbicacionActual').addEventListener('click', function () {
+        if (!navigator.geolocation) {
+            alert('Tu navegador no soporta geolocalización.');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            function (position) {
+                const lat = position.coords.latitude.toFixed(7);
+                const lng = position.coords.longitude.toFixed(7);
+
+                const latlng = L.latLng(lat, lng);
                 marker.setLatLng(latlng);
-                document.getElementById('latitud').value = latlng.lat.toFixed(7);
-                document.getElementById('longitud').value = latlng.lng.toFixed(7);
-            })
-            .addTo(map);
-        });
-    </script>
+                map.setView(latlng, 17);
+
+                document.getElementById('latitud').value = lat;
+                document.getElementById('longitud').value = lng;
+            },
+            function (error) {
+                alert('No se pudo obtener tu ubicación. Activa permisos de GPS.');
+                console.error(error);
+            }
+        );
+    });
+
+});
+</script>

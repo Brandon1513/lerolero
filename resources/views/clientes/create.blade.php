@@ -84,17 +84,27 @@
                             </select>
                             <x-input-error :messages="$errors->get('nivel_precio_id')" class="mt-2" />
                         </div>
+
                         <div id="map" style="height: 300px;" class="my-4 rounded shadow"></div>
 
-                        <div class="mb-4">
+                        <button type="button" id="btnUbicacionActual"
+                            class="px-4 py-2 mt-2 text-white bg-blue-600 rounded hover:bg-blue-700">
+                            📍 Usar mi ubicación actual
+                        </button>
+
+                        <div class="mt-4 mb-4">
                             <x-input-label for="latitud" :value="__('Latitud')" />
-                            <x-text-input id="latitud" name="latitud" type="text" class="block w-full mt-1" :value="old('latitud')" placeholder="Ej. 20.6765" />
+                            <x-text-input id="latitud" name="latitud" type="text"
+                                class="block w-full mt-1" :value="old('latitud')"
+                                placeholder="Ej. 20.6765" />
                             <x-input-error :messages="$errors->get('latitud')" class="mt-2" />
                         </div>
-                        
+
                         <div class="mb-4">
                             <x-input-label for="longitud" :value="__('Longitud')" />
-                            <x-text-input id="longitud" name="longitud" type="text" class="block w-full mt-1" :value="old('longitud')" placeholder="Ej. -103.3472" />
+                            <x-text-input id="longitud" name="longitud" type="text"
+                                class="block w-full mt-1" :value="old('longitud')"
+                                placeholder="Ej. -103.3472" />
                             <x-input-error :messages="$errors->get('longitud')" class="mt-2" />
                         </div>
                         
@@ -128,46 +138,69 @@
     </div>
 </x-app-layout>
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const map = L.map('map').setView([20.6765, -103.3472], 13);
+document.addEventListener("DOMContentLoaded", function () {
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+    let map = L.map('map').setView([20.6765, -103.3472], 13);
+    let marker = null;
 
-        let marker;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-        map.on('click', function (e) {
-            const lat = e.latlng.lat.toFixed(7);
-            const lng = e.latlng.lng.toFixed(7);
+    // Click en mapa para colocar marker
+    map.on('click', function (e) {
+        const lat = e.latlng.lat.toFixed(7);
+        const lng = e.latlng.lng.toFixed(7);
 
-            if (marker) {
-                marker.setLatLng(e.latlng);
-            } else {
-                marker = L.marker(e.latlng).addTo(map);
-            }
+        if (marker) marker.setLatLng(e.latlng);
+        else marker = L.marker(e.latlng).addTo(map);
 
-            document.getElementById('latitud').value = lat;
-            document.getElementById('longitud').value = lng;
-        });
+        document.getElementById('latitud').value = lat;
+        document.getElementById('longitud').value = lng;
+    });
 
-        // ✅ Agrega el buscador de direcciones
-        const geocoder = L.Control.geocoder({
-            defaultMarkGeocode: false,
-        })
-        .on('markgeocode', function(e) {
+    // Buscador de direcciones
+    const geocoder = L.Control.geocoder({ defaultMarkGeocode: false })
+        .on('markgeocode', function (e) {
             const latlng = e.geocode.center;
             map.setView(latlng, 17);
 
-            if (marker) {
-                marker.setLatLng(latlng);
-            } else {
-                marker = L.marker(latlng).addTo(map);
-            }
+            if (marker) marker.setLatLng(latlng);
+            else marker = L.marker(latlng).addTo(map);
 
             document.getElementById('latitud').value = latlng.lat.toFixed(7);
             document.getElementById('longitud').value = latlng.lng.toFixed(7);
         })
         .addTo(map);
+
+    // 📍 Botón Ubicación Actual
+    document.getElementById('btnUbicacionActual').addEventListener('click', function () {
+        if (!navigator.geolocation) {
+            alert('Tu navegador no soporta geolocalización.');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            function (position) {
+                const lat = position.coords.latitude.toFixed(7);
+                const lng = position.coords.longitude.toFixed(7);
+
+                const latlng = L.latLng(lat, lng);
+
+                if (marker) marker.setLatLng(latlng);
+                else marker = L.marker(latlng).addTo(map);
+
+                map.setView(latlng, 17);
+
+                document.getElementById('latitud').value = lat;
+                document.getElementById('longitud').value = lng;
+            },
+            function (error) {
+                alert('No se pudo obtener tu ubicación. Activa permisos de GPS.');
+                console.error(error);
+            }
+        );
     });
+
+});
 </script>
