@@ -82,3 +82,12 @@ Route::middleware('auth:sanctum')->get('/_debug/clientes', function (\Illuminate
     // devolvemos TAL CUAL lo que saca Eloquent
     return $q->get(['id','nombre','telefono','latitud','longitud','nivel_precio_id']);
 });
+
+//ventas a credito
+Route::middleware('auth:sanctum')->group(function () {
+    // Crear venta (contado / parcial / crédito)
+    Route::post('/venta', [VentaController::class, 'store']);
+
+    // Abonar a una venta existente
+    Route::post('/venta/{venta}/pagos', [VentaController::class, 'abonar']);
+});
