@@ -9,7 +9,7 @@ class Venta extends Model
     protected $table = 'ventas';
     protected $fillable = [
         'cliente_id','vendedor_id','fecha','total','observaciones',
-        'es_credito','total_pagado','saldo_pendiente','estado','fecha_vencimiento','nota_pago'
+        'es_credito','total_pagado','saldo_pendiente','estado','fecha_vencimiento','nota_pago, client_tx_id',
     ];
 
     public function cliente()

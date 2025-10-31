@@ -66,6 +66,9 @@ class VentaController extends Controller
             'pagos.*.referencia'    => 'nullable|string|max:191',
             'es_credito'            => 'nullable|boolean',
             'fecha_vencimiento'     => 'nullable|date',
+
+            // Idempotencia (opcional, pero MUY recomendado desde la app)
+            'client_tx_id'          => 'nullable|string|max:64',
         ]);
 
         $vendedor  = $request->user();
@@ -73,6 +76,24 @@ class VentaController extends Controller
 
         $cliente = Cliente::findOrFail($request->cliente_id);
         $nivelId = $cliente->nivel_precio_id;
+
+        /** ---------- Idempotencia: si ya existe una venta con ese client_tx_id, regresa la misma ---------- */
+        $clientTxId = $request->input('client_tx_id');
+        if ($clientTxId) {
+            $prev = Venta::where('client_tx_id', $clientTxId)->first();
+            if ($prev) {
+                return response()->json([
+                    'message'         => 'Venta ya registrada (reintento).',
+                    'venta_id'        => $prev->id,
+                    'total'           => (float) $prev->total,
+                    'pagado'          => (float) $prev->total_pagado,
+                    'saldo_pendiente' => (float) $prev->saldo_pendiente,
+                    'estado'          => $prev->estado,
+                    'warning'         => $this->creditWarning,
+                ], 200);
+            }
+        }
+        /** ----------------------------------------------------------------------------------------------- */
 
         /** ---------- Política de crédito ---------- */
         $policy = config('ventas.credit_policy', 'strict'); // strict|warn
@@ -101,7 +122,7 @@ class VentaController extends Controller
         /** ---------------------------------------- */
 
         try {
-            $result = DB::transaction(function () use ($request, $vendedor, $almacenId, $nivelId) {
+            $result = DB::transaction(function () use ($request, $vendedor, $almacenId, $nivelId, $clientTxId) {
 
                 $total = 0.0;
 
@@ -165,7 +186,7 @@ class VentaController extends Controller
                     ? ($saldoPendiente > 0 ? 'credito' : 'pagada')
                     : (abs($saldoPendiente) <= $eps ? 'pagada' : 'parcial');
 
-                // 4) Crear venta
+                // 4) Crear venta (con client_tx_id)
                 $venta = Venta::create([
                     'cliente_id'        => $request->cliente_id,
                     'vendedor_id'       => $vendedor->id,
@@ -178,6 +199,8 @@ class VentaController extends Controller
                     'saldo_pendiente'   => $saldoPendiente,
                     'fecha_vencimiento' => $fv,
                     'estado'            => $estado,
+
+                    'client_tx_id'      => $clientTxId, // << clave de idempotencia
                 ]);
 
                 // 5) Descontar productos sueltos (FIFO) + detalle_ventas
@@ -284,7 +307,7 @@ class VentaController extends Controller
                         'metodo'      => $pago['metodo'],
                         'monto'       => (float) $pago['monto'],
                         'referencia'  => $pago['referencia'] ?? null,
-                        'cobrador_id' => $vendedor->id, // 👈 vendedor que cobró
+                        'cobrador_id' => $vendedor->id, // vendedor que cobró
                         'fecha'       => now(),
                     ]);
                 }
@@ -309,7 +332,27 @@ class VentaController extends Controller
             ], 201);
 
         } catch (\Throwable $e) {
-            \Log::error('Venta store failed', ['err' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            \Log::error('Venta store failed', [
+                'err'   => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'tx'    => $clientTxId,
+            ]);
+
+            // Si fue un conflicto de UNIQUE (dos toques simultáneos), intenta devolver la venta creada
+            if ($clientTxId && str_contains(strtolower($e->getMessage()), 'unique')) {
+                if ($prev = Venta::where('client_tx_id', $clientTxId)->first()) {
+                    return response()->json([
+                        'message'         => 'Venta ya registrada (reintento).',
+                        'venta_id'        => $prev->id,
+                        'total'           => (float) $prev->total,
+                        'pagado'          => (float) $prev->total_pagado,
+                        'saldo_pendiente' => (float) $prev->saldo_pendiente,
+                        'estado'          => $prev->estado,
+                        'warning'         => $this->creditWarning,
+                    ], 200);
+                }
+            }
+
             return response()->json([
                 'message' => 'Error al registrar la venta.',
                 'error'   => $e->getMessage(),
@@ -341,7 +384,7 @@ class VentaController extends Controller
                 'metodo'      => $request->metodo,
                 'monto'       => (float) $request->monto,
                 'referencia'  => $request->referencia,
-                'cobrador_id' => $vendedor->id, // 👈 quién cobra
+                'cobrador_id' => $vendedor->id, // quién cobra
                 'fecha'       => now(),
             ]);
 
