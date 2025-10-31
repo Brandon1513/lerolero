@@ -51,6 +51,9 @@ Route::middleware('auth:sanctum')->get('/clientes/{cliente}/ventas', function (\
         ->latest()
         ->get();
 });
+Route::get('/clientes-con-saldo', [\App\Http\Controllers\Api\ClienteMovilController::class, 'indexConSaldo']);
+Route::get('/clientes/{cliente}/saldo', [\App\Http\Controllers\Api\ClienteMovilController::class, 'saldo']); // opcional
+
 
 
 Route::middleware('auth:sanctum')->post('/solicitar-cierre', [\App\Http\Controllers\Api\CierreRutaMovilController::class, 'solicitar']);
