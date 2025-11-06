@@ -11,6 +11,14 @@ class Venta extends Model
         'cliente_id','vendedor_id','fecha','total','observaciones',
         'es_credito','total_pagado','saldo_pendiente','estado','fecha_vencimiento','nota_pago, client_tx_id',
     ];
+    protected $casts = [
+        'es_credito'        => 'boolean',
+        'total'             => 'decimal:2',
+        'total_pagado'      => 'decimal:2',
+        'saldo_pendiente'   => 'decimal:2',
+        'fecha'             => 'datetime',
+        'fecha_vencimiento' => 'date',
+    ];
 
     public function cliente()
     {
