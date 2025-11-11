@@ -128,4 +128,13 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::get('/producciones/{produccion}', [\App\Http\Controllers\ProduccionController::class, 'show'])->name('producciones.show');
 });
 
+
+//APK
+
+// APK (pública)
+Route::get('/descargar-app', [\App\Http\Controllers\AppDownloadController::class, 'apk'])
+    ->name('app.download');
+
+
+
 require __DIR__.'/auth.php';
