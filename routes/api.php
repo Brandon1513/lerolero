@@ -54,6 +54,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // --------------------------------------------
     // 👥 CLIENTES
     // --------------------------------------------
+
+    // 👇 AGREGAR ESTA LÍNEA (fuera del prefix clientes)
+    Route::get('/clientes-dia', [ClienteMovilController::class, 'delDia']);
+    
     Route::prefix('clientes')->group(function () {
         // Lista completa de clientes asignados
         Route::get('/', [ClienteMovilController::class, 'index']);

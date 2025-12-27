@@ -17,6 +17,7 @@ use App\Models\Cliente;
 use App\Models\Producto;
 use App\Models\ProductoNivelPrecio;
 use App\Models\PagoVenta;
+use App\Models\VisitaCliente;
 
 class VentaController extends Controller
 {
@@ -69,6 +70,10 @@ class VentaController extends Controller
 
             // Idempotencia (opcional, pero MUY recomendado desde la app)
             'client_tx_id'          => 'nullable|string|max:64',
+
+            //Coordenadas  GPS opcionales
+            'latitud'               => 'nullable|numeric|between:-90,90',
+            'longitud'              => 'nullable|numeric|between:-180,180',
         ]);
 
         $vendedor  = $request->user();
@@ -311,6 +316,12 @@ class VentaController extends Controller
                         'fecha'       => now(),
                     ]);
                 }
+                // 🆕 9) VINCULAR CON VISITA AUTOMÁTICAMENTE
+                $this->vincularConVisita(
+                    $venta, 
+                    $request->input('latitud'), 
+                    $request->input('longitud')
+                );
 
                 return [
                     'venta_id'        => $venta->id,
@@ -359,6 +370,65 @@ class VentaController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * 🆕 Vincular venta con visita automáticamente
+     * 
+     * @param Venta $venta
+     * @param float|null $latitud
+     * @param float|null $longitud
+     * @return void
+     */
+    private function vincularConVisita(Venta $venta, $latitud = null, $longitud = null)
+    {
+        try {
+            $hoy = now()->toDateString();
+
+            // Buscar si ya existe una visita para este cliente HOY del vendedor
+            $visita = VisitaCliente::where('user_id', $venta->vendedor_id)
+                ->where('cliente_id', $venta->cliente_id)
+                ->whereDate('fecha_visita', $hoy)
+                ->first();
+
+            if ($visita) {
+                // ✅ Si existe, actualizar con el ID de la venta
+                $visita->update([
+                    'venta_id' => $venta->id,
+                    'realizo_venta' => true,
+                    'motivo_no_venta' => null,
+                    'latitud' => $latitud ?? $visita->latitud,
+                    'longitud' => $longitud ?? $visita->longitud,
+                ]);
+                
+                \Log::info("Visita #{$visita->id} vinculada con venta #{$venta->id}");
+            } else {
+                // 🆕 Si no existe, crear una nueva visita automáticamente
+                $nuevaVisita = VisitaCliente::create([
+                    'user_id' => $venta->vendedor_id,
+                    'cliente_id' => $venta->cliente_id,
+                    'fecha_visita' => $hoy,
+                    'hora_visita' => now()->toTimeString(),
+                    'realizo_venta' => true,
+                    'venta_id' => $venta->id,
+                    'motivo_no_venta' => null,
+                    'observaciones' => 'Visita registrada automáticamente desde venta móvil',
+                    'latitud' => $latitud,
+                    'longitud' => $longitud,
+                    'estado' => 'visitado',
+                ]);
+                
+                \Log::info("Visita #{$nuevaVisita->id} creada automáticamente para venta #{$venta->id}");
+            }
+        } catch (\Exception $e) {
+            // Solo log, no interrumpir la venta si falla la vinculación
+            \Log::warning('No se pudo vincular venta con visita: ' . $e->getMessage(), [
+                'venta_id' => $venta->id,
+                'cliente_id' => $venta->cliente_id,
+            ]);
+        }
+    }
+
+
 
     /** Registrar un abono a una venta existente */
     public function abonar(Request $request, Venta $venta)
