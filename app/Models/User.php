@@ -46,4 +46,41 @@ class User extends Authenticatable
     {
         return $this->hasMany(Cliente::class, 'asignado_a'); // o el campo que uses
     }
+        /**
+     * Visitas realizadas por el vendedor
+     */
+    public function visitas()
+    {
+        return $this->hasMany(VisitaCliente::class);
+    }
+
+    /**
+     * Visitas de hoy
+     */
+    public function visitasHoy()
+    {
+        return $this->visitas()->whereDate('fecha_visita', today());
+    }
+
+    /**
+     * Estadísticas de visitas del vendedor
+     */
+    public function estadisticasVisitas($fechaInicio = null, $fechaFin = null)
+    {
+        $query = $this->visitas();
+        
+        if ($fechaInicio && $fechaFin) {
+            $query->whereBetween('fecha_visita', [$fechaInicio, $fechaFin]);
+        }
+        
+        $total = $query->count();
+        $conVenta = $query->where('realizo_venta', true)->count();
+        
+        return [
+            'total_visitas' => $total,
+            'con_venta' => $conVenta,
+            'sin_venta' => $total - $conVenta,
+            'tasa_conversion' => $total > 0 ? round(($conVenta / $total) * 100, 2) : 0,
+        ];
+    }
 }

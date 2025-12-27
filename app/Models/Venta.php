@@ -57,5 +57,12 @@ class Venta extends Model
     public function getSaldoComputedAttribute(): float {
         return max(0, (float)$this->total - $this->total_pagado);
     }
+    /**
+ * Visita asociada a esta venta
+ */
+public function visita()
+{
+    return $this->hasOne(VisitaCliente::class);
+}
 
 }

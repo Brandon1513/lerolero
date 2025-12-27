@@ -7,90 +7,143 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ClienteMovilController;
 use App\Http\Controllers\Api\InventarioMovilController;
 use App\Http\Controllers\Api\RechazoTemporalController;
-use App\Http\Controllers\Api\VentaController; // este sí está en Api
-use App\Http\Controllers\Api\AuthController; // si lo tienes en esta ruta
+use App\Http\Controllers\Api\VentaController;
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PromocionController;
+use App\Http\Controllers\Api\VisitaClienteController;
+use App\Http\Controllers\Api\CierreRutaMovilController;
 
+/*
+|--------------------------------------------------------------------------
+| API Routes - Aplicación Móvil de Ventas
+|--------------------------------------------------------------------------
+*/
+
+// ============================================
+// 🔐 AUTENTICACIÓN (Sin middleware)
+// ============================================
 Route::post('/login', [AuthController::class, 'login']);
 
+// ============================================
+// 🔒 RUTAS PROTEGIDAS (auth:sanctum)
+// ============================================
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/clientes', [ClienteMovilController::class, 'index']);
+    
+    // --------------------------------------------
+    // 👤 USUARIO AUTENTICADO
+    // --------------------------------------------
+    Route::get('/me', function (Request $request) {
+        return $request->user();
+    });
+
+    Route::post('/update-password', function (Request $request) {
+        $request->validate([
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        $user = $request->user();
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        // 🔥 Cerrar sesión actual
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json(['message' => 'Contraseña actualizada. Token eliminado.']);
+    });
+
+    // --------------------------------------------
+    // 👥 CLIENTES
+    // --------------------------------------------
+    Route::prefix('clientes')->group(function () {
+        // Lista completa de clientes asignados
+        Route::get('/', [ClienteMovilController::class, 'index']);
+        
+        // Solo clientes del día actual
+        Route::get('/dia', [ClienteMovilController::class, 'delDia']); // 👈 Cambié de clientes-dia a clientes/dia
+        
+        // Clientes asignados (alias)
+        Route::get('/asignados', function (Request $request) {
+            return $request->user()->clientes;
+        });
+        
+        // Historial de ventas de un cliente
+        Route::get('/{cliente}/ventas', [ClienteMovilController::class, 'ventas']);
+        
+        // Saldo de un cliente específico
+        Route::get('/{cliente}/saldo', [ClienteMovilController::class, 'saldo']);
+    });
+
+    // Clientes con saldo pendiente
+    Route::get('/clientes-con-saldo', [ClienteMovilController::class, 'indexConSaldo']);
+
+    // --------------------------------------------
+    // 📦 INVENTARIO
+    // --------------------------------------------
     Route::get('/inventario', [InventarioMovilController::class, 'index']);
-    Route::post('/venta', [VentaController::class, 'store']);
-});
 
-Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
-    return $request->user();
-});
+    // --------------------------------------------
+    // 🛒 VENTAS
+    // --------------------------------------------
+    Route::prefix('venta')->group(function () {
+        // Crear venta (contado / parcial / crédito)
+        Route::post('/', [VentaController::class, 'store']);
+        
+        // Abonar a una venta existente
+        Route::post('/{venta}/pagos', [VentaController::class, 'abonar']);
+    });
 
-Route::middleware('auth:sanctum')->post('/update-password', function (Request $request) {
-    $request->validate([
-        'password' => 'required|min:6|confirmed',
-    ]);
-
-    $user = $request->user();
-    $user->password = Hash::make($request->password);
-    $user->save();
-
-    // 🔥 Cerrar sesión actual
-    $request->user()->currentAccessToken()->delete();
-
-    return response()->json(['message' => 'Contraseña actualizada. Token eliminado.']);
-});
-
-//cliente asignado a vendedor
-
-Route::middleware('auth:sanctum')->get('/clientes-asignados', function (Request $request) {
-    return $request->user()->clientes; // Suponiendo que tienes la relación
-});
-Route::middleware('auth:sanctum')->get('/clientes-dia', [ClienteMovilController::class, 'delDia']);
-
-Route::middleware('auth:sanctum')->get('/clientes/{cliente}/ventas', function (\App\Models\Cliente $cliente) {
-    return $cliente->ventas()
-        ->with(['cliente', 'detalles.producto', 'rechazos.producto']) // 👈 Incluimos también los rechazos
-        ->latest()
-        ->get();
-});
-Route::get('/clientes-con-saldo', [\App\Http\Controllers\Api\ClienteMovilController::class, 'indexConSaldo']);
-Route::get('/clientes/{cliente}/saldo', [\App\Http\Controllers\Api\ClienteMovilController::class, 'saldo']); // opcional
-
-
-
-Route::middleware('auth:sanctum')->post('/solicitar-cierre', [\App\Http\Controllers\Api\CierreRutaMovilController::class, 'solicitar']);
-
-Route::middleware('auth:sanctum')->group(function () {
+    // --------------------------------------------
+    // 🔄 RECHAZOS TEMPORALES (Cambios de venta)
+    // --------------------------------------------
     Route::post('/rechazos', [RechazoTemporalController::class, 'store']);
-});
 
-//Promociones
-Route::middleware('auth:sanctum')->get('/promociones',[PromocionController::class, 'index']);
+    // --------------------------------------------
+    // 🎁 PROMOCIONES
+    // --------------------------------------------
+    Route::get('/promociones', [PromocionController::class, 'index']);
 
+    // --------------------------------------------
+    // 🗺️ RUTAS Y VISITAS
+    // --------------------------------------------
+    
+    // Solicitar cierre de ruta
+    Route::post('/solicitar-cierre', [CierreRutaMovilController::class, 'solicitar']);
+    
+    // 📊 VISITAS A CLIENTES
+    Route::prefix('visitas')->group(function () {
+        // Registrar una visita
+        Route::post('/', [VisitaClienteController::class, 'registrarVisita']);
+        
+        // Obtener visitas de hoy
+        Route::get('/hoy', [VisitaClienteController::class, 'visitasHoy']);
+        
+        // Estadísticas de visitas
+        Route::get('/estadisticas', [VisitaClienteController::class, 'estadisticas']);
+        
+        // Verificar si un cliente ya fue visitado hoy
+        Route::get('/verificar/{cliente_id}', [VisitaClienteController::class, 'verificarVisita']);
+        
+        // Vincular una venta con su visita (uso interno)
+        Route::post('/vincular/{venta_id}', [VisitaClienteController::class, 'vincularVenta']);
+    });
 
-Route::middleware('auth:sanctum')->get('/_debug/clientes', function (\Illuminate\Http\Request $request) {
-    $user = $request->user();
+    // --------------------------------------------
+    // 🛠️ DEBUG (Opcional - remover en producción)
+    // --------------------------------------------
+    Route::get('/_debug/clientes', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        $diaActual = now()->locale('es')->isoFormat('dddd');
+        $diaTitulo = ucfirst($diaActual);
 
-    // mismos filtros que usas en index(), pero sin mapear nada
-    $diaActual = now()->locale('es')->isoFormat('dddd');
-    $diaTitulo = ucfirst($diaActual);
+        $q = \App\Models\Cliente::query()
+            ->where('asignado_a', $user->id)
+            ->with(['nivelPrecio:id,nombre'])
+            ->orderBy('nombre');
 
-    $q = \App\Models\Cliente::query()
-        ->where('asignado_a', $user->id)
-        ->with(['nivelPrecio:id,nombre'])
-        ->orderBy('nombre');
+        if (!$request->boolean('all')) {
+            $q->whereJsonContains('dias_visita', $diaTitulo);
+        }
 
-    if (!$request->boolean('all')) {
-        $q->whereJsonContains('dias_visita', $diaTitulo);
-    }
-
-    // devolvemos TAL CUAL lo que saca Eloquent
-    return $q->get(['id','nombre','telefono','latitud','longitud','nivel_precio_id']);
-});
-
-//ventas a credito
-Route::middleware('auth:sanctum')->group(function () {
-    // Crear venta (contado / parcial / crédito)
-    Route::post('/venta', [VentaController::class, 'store']);
-
-    // Abonar a una venta existente
-    Route::post('/venta/{venta}/pagos', [VentaController::class, 'abonar']);
+        return $q->get(['id','nombre','telefono','latitud','longitud','nivel_precio_id']);
+    });
 });
