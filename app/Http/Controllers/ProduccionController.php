@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use id;
 use App\Models\Producto;
 use App\Models\Inventario;
 use App\Models\Produccion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\LoteInventario;
-
+use App\Models\DetalleTraslado;
 
 class ProduccionController extends Controller
 {
@@ -37,80 +36,115 @@ public function store(Request $request)
         'notas' => 'nullable|string|max:1000',
     ]);
 
-    $produccion = Produccion::create([
-        'producto_id' => $request->producto_id,
-        'cantidad' => $request->cantidad,
-        'fecha' => $request->fecha,
-        'lote' => $request->lote,
-        'notas' => $request->notas,
-        'usuario_id' => auth()->id(),
-    ]);
+    DB::transaction(function () use ($request) {
 
-    // 1. Guardar en lotes_inventario
-    LoteInventario::create([
-        'producto_id' => $request->producto_id,
-        'almacen_id' => 1,
-        'lote' => $request->lote,
-        'fecha_caducidad' => $request->fecha_caducidad,
-        'cantidad' => $request->cantidad,
-    ]);
+        // 1) Guardar Producción (✅ ahora incluye fecha_caducidad)
+        $produccion = Produccion::create([
+            'producto_id'      => $request->producto_id,
+            'cantidad'         => $request->cantidad,
+            'fecha'            => $request->fecha,
+            'fecha_caducidad'  => $request->fecha_caducidad, // ✅
+            'lote'             => $request->lote,
+            'notas'            => $request->notas,
+            'usuario_id'       => auth()->id(),
+        ]);
 
-    // 2. Actualizar o crear en inventario_almacen
-    Inventario::updateOrCreate(
-        [
-            'producto_id' => $request->producto_id,
-            'almacen_id' => 1,
-            'lote' => $request->lote,
+        // 2) Guardar en lotes_inventario
+        LoteInventario::create([
+            'producto_id'     => $request->producto_id,
+            'almacen_id'      => 1,
+            'lote'            => $request->lote,
             'fecha_caducidad' => $request->fecha_caducidad,
-        ],
-        [
-            'cantidad' => DB::raw("cantidad + {$request->cantidad}")
-        ]
-    );
+            'cantidad'        => $request->cantidad,
+        ]);
+
+        // 3) Actualizar/crear en inventario_almacen (más seguro)
+        $inv = Inventario::firstOrCreate(
+            [
+                'producto_id'     => $request->producto_id,
+                'almacen_id'      => 1,
+                'lote'            => $request->lote,
+                'fecha_caducidad' => $request->fecha_caducidad,
+            ],
+            [
+                'cantidad' => 0,
+            ]
+        );
+
+        $inv->increment('cantidad', (int)$request->cantidad);
+    });
 
     return redirect()->route('producciones.index')->with('success', 'Producción registrada con lote y caducidad.');
 }
 
 
+
 public function destroy(Produccion $produccion)
-{
-    DB::transaction(function () use ($produccion) {
-        // 1. Revertir en inventario_almacen (almacén general = ID 1)
-        $inventario = \App\Models\Inventario::where('producto_id', $produccion->producto_id)
+    {
+        // ✅ Regla pro: NO borrar si el lote ya salió del almacén general (por traslado)
+        $yaSeTrasladoDesdeGeneral = DetalleTraslado::where('producto_id', $produccion->producto_id)
+            ->where('lote', $produccion->lote)
+            ->where('fecha_caducidad', $produccion->fecha_caducidad)
+            ->whereHas('traslado', function ($q) {
+                $q->where('almacen_origen_id', 1);
+            })
+            ->exists();
+
+        if ($yaSeTrasladoDesdeGeneral) {
+            return back()->with('error', 'No se puede eliminar: este lote ya fue trasladado desde el Almacén General.');
+        }
+
+        // ✅ Regla pro: debe existir completo en almacén general (porque si hubo ventas/ajustes ya no cuadra)
+        $cantidadDisponibleGeneral = Inventario::where('producto_id', $produccion->producto_id)
             ->where('almacen_id', 1)
             ->where('lote', $produccion->lote)
             ->where('fecha_caducidad', $produccion->fecha_caducidad)
-            ->first();
+            ->value('cantidad') ?? 0;
 
-        if ($inventario) {
-            if ($inventario->cantidad <= $produccion->cantidad) {
-                $inventario->delete();
-            } else {
-                $inventario->decrement('cantidad', $produccion->cantidad);
-            }
+        if ($cantidadDisponibleGeneral < $produccion->cantidad) {
+            return back()->with('error', 'No se puede eliminar: el stock en Almacén General ya no coincide (hubo ventas/ajustes/traslados).');
         }
 
-        // 2. Revertir en lotes_inventario
-        $lote = \App\Models\LoteInventario::where('producto_id', $produccion->producto_id)
-            ->where('almacen_id', 1)
-            ->where('lote', $produccion->lote)
-            ->where('fecha_caducidad', $produccion->fecha_caducidad)
-            ->first();
+        DB::transaction(function () use ($produccion) {
 
-        if ($lote) {
-            if ($lote->cantidad <= $produccion->cantidad) {
-                $lote->delete();
-            } else {
-                $lote->decrement('cantidad', $produccion->cantidad);
+            // 1) Revertir en inventario_almacen (general=1)
+            $inventario = Inventario::where('producto_id', $produccion->producto_id)
+                ->where('almacen_id', 1)
+                ->where('lote', $produccion->lote)
+                ->where('fecha_caducidad', $produccion->fecha_caducidad)
+                ->first();
+
+            if ($inventario) {
+                if ($inventario->cantidad <= $produccion->cantidad) {
+                    $inventario->delete();
+                } else {
+                    $inventario->decrement('cantidad', $produccion->cantidad);
+                }
             }
-        }
 
-        // 3. Eliminar la producción
-        $produccion->delete();
-    });
+            // 2) Revertir en lotes_inventario
+            $lote = LoteInventario::where('producto_id', $produccion->producto_id)
+                ->where('almacen_id', 1)
+                ->where('lote', $produccion->lote)
+                ->where('fecha_caducidad', $produccion->fecha_caducidad)
+                ->first();
 
-    return redirect()->route('producciones.index')->with('success', 'Producción eliminada y stock revertido.');
-}
+            if ($lote) {
+                if ($lote->cantidad <= $produccion->cantidad) {
+                    $lote->delete();
+                } else {
+                    $lote->decrement('cantidad', $produccion->cantidad);
+                }
+            }
+
+            // 3) Eliminar producción
+            $produccion->delete();
+        });
+
+        return redirect()->route('producciones.index')
+            ->with('success', 'Producción eliminada y stock revertido.');
+    }
+
 
 
 }

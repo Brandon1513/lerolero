@@ -96,8 +96,10 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::patch('/promociones/{promocion}/toggle', [PromocionController::class, 'toggle'])->name('promociones.toggle');
     
     // 🏭 PRODUCCIONES
-    Route::resource('producciones', App\Http\Controllers\ProduccionController::class)->only(['index', 'create', 'store', 'destroy']);
-    Route::get('/producciones/{produccion}', [App\Http\Controllers\ProduccionController::class, 'show'])->name('producciones.show');
+    Route::resource('producciones', App\Http\Controllers\ProduccionController::class)
+    ->only(['index', 'create', 'store', 'show', 'destroy'])
+    ->parameters(['producciones' => 'produccion']);
+
     
     // 🚪 CIERRES DE RUTA
     Route::prefix('admin')->group(function () {
