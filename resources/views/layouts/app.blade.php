@@ -15,7 +15,6 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-        
         @stack('styles')
     </head>
     <body class="font-sans antialiased">
@@ -36,8 +35,9 @@
                 {{ $slot }}
             </main>
         </div>
-        @stack('scripts')
+        
         <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
         <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+        @stack('scripts')
     </body>
 </html>
