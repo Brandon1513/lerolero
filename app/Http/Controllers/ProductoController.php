@@ -9,7 +9,6 @@ use App\Models\NivelPrecio;
 use App\Models\ProductoNivelPrecio; // <-- importa el modelo pivot
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Models\DetalleTraslado;
 
 
 class ProductoController extends Controller
