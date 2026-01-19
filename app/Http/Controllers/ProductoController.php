@@ -14,10 +14,41 @@ use Illuminate\Support\Facades\DB;
 class ProductoController extends Controller
 {
     public function index()
-    {
-        $productos = Producto::with(['categoria', 'unidadMedida'])->get();
-        return view('productos.index', compact('productos'));
-    }
+{
+    $productos = Producto::with(['categoria', 'unidadMedida'])
+        ->orderBy('nombre')
+        ->get()
+        ->map(function ($p) {
+
+            // Validar movimientos en tablas clave
+            $tieneTraslados = DB::getSchemaBuilder()->hasTable('detalle_traslados')
+                ? DB::table('detalle_traslados')->where('producto_id', $p->id)->exists()
+                : false;
+
+            $tieneVentas = DB::getSchemaBuilder()->hasTable('detalle_ventas')
+                ? DB::table('detalle_ventas')->where('producto_id', $p->id)->exists()
+                : false;
+
+            $tieneProducciones = DB::getSchemaBuilder()->hasTable('producciones')
+                ? DB::table('producciones')->where('producto_id', $p->id)->exists()
+                : false;
+
+            $tieneInventario = DB::getSchemaBuilder()->hasTable('inventario_almacen')
+                ? DB::table('inventario_almacen')->where('producto_id', $p->id)->exists()
+                : false;
+
+            $tieneMovimientos = $tieneTraslados || $tieneVentas || $tieneProducciones || $tieneInventario;
+
+            // Si tiene movimientos, no se puede eliminar (solo inactivar)
+            $p->puede_eliminar = !$tieneMovimientos;
+            $p->tiene_movimientos = $tieneMovimientos;
+
+            return $p;
+        });
+
+    return view('productos.index', compact('productos'));
+}
+
 
     public function create()
     {
@@ -165,7 +196,69 @@ class ProductoController extends Controller
 
     public function destroy(Producto $producto)
     {
-        $producto->delete();
+        // Si ya hay movimientos, NO permitir borrado. Solo inactivar.
+        $tieneMovimientos = false;
+        $razones = [];
+
+        // Traslados
+        if (DB::getSchemaBuilder()->hasTable('detalle_traslados')) {
+            $existe = DB::table('detalle_traslados')->where('producto_id', $producto->id)->exists();
+            if ($existe) { $tieneMovimientos = true; $razones[] = 'traslados'; }
+        }
+
+        // Ventas
+        if (DB::getSchemaBuilder()->hasTable('detalle_ventas')) {
+            $existe = DB::table('detalle_ventas')->where('producto_id', $producto->id)->exists();
+            if ($existe) { $tieneMovimientos = true; $razones[] = 'ventas'; }
+        }
+
+        // Producciones
+        if (DB::getSchemaBuilder()->hasTable('producciones')) {
+            $existe = DB::table('producciones')->where('producto_id', $producto->id)->exists();
+            if ($existe) { $tieneMovimientos = true; $razones[] = 'producciones'; }
+        }
+
+        // Inventario (si existe, normalmente también bloquea borrado)
+        if (DB::getSchemaBuilder()->hasTable('inventario_almacen')) {
+            $existe = DB::table('inventario_almacen')->where('producto_id', $producto->id)->exists();
+            if ($existe) { $tieneMovimientos = true; $razones[] = 'inventario'; }
+        }
+
+        // Precios por nivel (pivot)
+        if (DB::getSchemaBuilder()->hasTable('producto_nivel_precio')) {
+            $existe = DB::table('producto_nivel_precio')->where('producto_id', $producto->id)->exists();
+            if ($existe) { $tieneMovimientos = true; $razones[] = 'precios por nivel'; }
+        }
+
+        if ($tieneMovimientos) {
+            // Mejor práctica: inactivar en vez de borrar
+            $producto->activo = false;
+            $producto->save();
+
+            return redirect()->route('productos.index')
+                ->with('error', 'No se puede eliminar: el producto ya tiene ' . implode(', ', $razones) . '. Se inactivó en su lugar.');
+        }
+
+        // Si NO tiene movimientos, ahora sí puedes borrar (opcional)
+        DB::transaction(function () use ($producto) {
+            // Limpia pivots si quieres
+            if (DB::getSchemaBuilder()->hasTable('producto_nivel_precio')) {
+                DB::table('producto_nivel_precio')->where('producto_id', $producto->id)->delete();
+            }
+
+            $producto->delete();
+        });
+
         return redirect()->route('productos.index')->with('success', 'Producto eliminado correctamente.');
     }
+
+
+    public function toggle(Producto $producto)
+    {
+        $producto->activo = ! (bool) $producto->activo;
+        $producto->save();
+
+        return back()->with('success', 'Producto ' . ($producto->activo ? 'activado' : 'inactivado') . ' correctamente.');
+    }
+
 }

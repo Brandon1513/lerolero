@@ -9,7 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 class NivelPrecio extends Model
 {
     protected $table = 'niveles_precio';
-    protected $fillable = ['nombre'];
+    protected $fillable = ['nombre', 'activo'];
+
+    protected $casts = [
+    'activo' => 'boolean',
+    ];
 
     public function productos()
     {

@@ -5,13 +5,7 @@
         </h2>
     </x-slot>
 
-    <div class="py-12 max-w-7xl mx-auto sm:px-6 lg:px-8">
-        @if (session('success'))
-            <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">
-                {{ session('success') }}
-            </div>
-        @endif
-
+    <div class="py-12 mx-auto max-w-7xl sm:px-6 lg:px-8">
         <!-- Botón Crear -->
         <div class="mb-4">
             <a href="{{ route('almacenes.create') }}"
@@ -24,13 +18,13 @@
             <!-- Buscar por nombre -->
             <div>
                 <x-input-label for="buscar" value="Buscar por Nombre" />
-                <x-text-input id="buscar" name="buscar" type="text" value="{{ request('buscar') }}" class="block mt-1 w-full" />
+                <x-text-input id="buscar" name="buscar" type="text" value="{{ request('buscar') }}" class="block w-full mt-1" />
             </div>
 
             <!-- Filtrar por tipo -->
             <div>
                 <x-input-label for="tipo" value="Tipo de Almacén" />
-                <select name="tipo" id="tipo" class="block mt-1 w-full rounded-md border-gray-300 shadow-sm">
+                <select name="tipo" id="tipo" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm">
                     <option value="">-- Todos --</option>
                     <option value="general" {{ request('tipo') == 'general' ? 'selected' : '' }}>General</option>
                     <option value="vendedor" {{ request('tipo') == 'vendedor' ? 'selected' : '' }}>Vendedor</option>
@@ -52,28 +46,28 @@
 
 
         <!-- Tabla -->
-        <div class="overflow-x-auto bg-white shadow rounded-lg">
+        <div class="overflow-x-auto bg-white rounded-lg shadow">
             <table class="w-full text-sm border border-collapse">
-                <thead class="bg-gray-100 text-left">
+                <thead class="text-left bg-gray-100">
                     <tr>
                         <th class="px-4 py-2 border">Nombre</th>
                         <th class="px-4 py-2 border">Tipo</th>
                         <th class="px-4 py-2 border">Ubicación</th>
                         <th class="px-4 py-2 border">Usuario Asignado</th>
-                        <th class="px-4 py-2 border text-center">Acciones</th>
+                        <th class="px-4 py-2 text-center border">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($almacenes as $almacen)
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-2 border">{{ $almacen->nombre }}</td>
-                            <td class="px-4 py-2 border capitalize">{{ $almacen->tipo }}</td>
+                            <td class="px-4 py-2 capitalize border">{{ $almacen->tipo }}</td>
                             <td class="px-4 py-2 border">{{ $almacen->ubicacion }}</td>
                             <td class="px-4 py-2 border">
                                 {{ $almacen->usuario?->name ?? 'No asignado' }}
                             </td>
                             <td class="px-4 py-2 text-center border">
-                                <div class="flex justify-center gap-2 flex-wrap">
+                                <div class="flex flex-wrap justify-center gap-2">
                                     <!-- Editar -->
                                     <a href="{{ route('almacenes.edit', $almacen) }}"
                                        class="px-3 py-1 text-white bg-yellow-500 rounded hover:bg-yellow-700">

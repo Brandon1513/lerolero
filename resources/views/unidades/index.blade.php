@@ -7,9 +7,17 @@
 
     <div class="py-12">
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+
+            {{-- ✅ Mensajes --}}
             @if (session('success'))
-                <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
+                <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">
                     {{ session('success') }}
+                </div>
+            @endif
+
+            @if (session('error'))
+                <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
+                    {{ session('error') }}
                 </div>
             @endif
 
@@ -25,32 +33,42 @@
 
                     <div class="overflow-x-auto">
                         <table class="w-full border border-gray-200 divide-y divide-gray-200">
-                            <thead class="bg-gray-100 text-left">
+                            <thead class="text-left bg-gray-100">
                                 <tr>
                                     <th class="px-4 py-2 border">Nombre</th>
-                                    <th class="px-4 py-2 border text-center">Acciones</th>
+                                    <th class="px-4 py-2 border">Equivalente</th>
+                                    <th class="px-4 py-2 text-center border">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($unidades as $unidad)
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-4 py-2 border">{{ $unidad->nombre }}</td>
-                                        <td class="px-4 py-2 border text-center">
+                                        <td class="px-4 py-2 border">{{ $unidad->equivalente }}</td>
+
+                                        <td class="px-4 py-2 text-center border">
                                             <div class="flex justify-center gap-2">
                                                 <a href="{{ route('unidades.edit', $unidad) }}"
                                                     class="px-3 py-1 text-white bg-yellow-500 rounded hover:bg-yellow-700">
                                                     Editar
                                                 </a>
 
-                                                <form action="{{ route('unidades.destroy', $unidad) }}" method="POST"
-                                                    onsubmit="return confirm('¿Eliminar unidad?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="px-3 py-1 text-white bg-red-500 rounded hover:bg-red-700">
-                                                        Eliminar
-                                                    </button>
-                                                </form>
+                                                {{-- ✅ Eliminar: solo si puede --}}
+                                                @if($unidad->puede_eliminar ?? true)
+                                                    <form action="{{ route('unidades.destroy', $unidad) }}" method="POST"
+                                                        onsubmit="return confirm('¿Eliminar unidad?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit"
+                                                            class="px-3 py-1 text-white bg-red-500 rounded hover:bg-red-700">
+                                                            Eliminar
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <span class="px-3 py-1 text-xs font-semibold text-white bg-gray-400 rounded">
+                                                        No eliminable
+                                                    </span>
+                                                @endif
 
                                                 <form action="{{ route('unidades.toggle', $unidad) }}" method="POST">
                                                     @csrf
@@ -65,7 +83,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="2" class="px-4 py-4 text-center text-gray-500">
+                                        <td colspan="3" class="px-4 py-4 text-center text-gray-500">
                                             No hay unidades registradas.
                                         </td>
                                     </tr>
