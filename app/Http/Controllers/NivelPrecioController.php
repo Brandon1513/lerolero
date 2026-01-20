@@ -27,12 +27,12 @@ class NivelPrecioController extends Controller
                 return $n;
             });
 
-        return view('niveles_precio.index', compact('niveles'));
+        return view('niveles-precio.index', compact('niveles'));
     }
 
     public function create()
     {
-        return view('niveles_precio.create');
+        return view('niveles-precio.create');
     }
 
     public function store(Request $request)
@@ -46,12 +46,12 @@ class NivelPrecioController extends Controller
             'activo' => true,
         ]);
 
-        return redirect()->route('niveles_precio.index')->with('success', 'Nivel creado correctamente.');
+        return redirect()->route('niveles-precio.index')->with('success', 'Nivel creado correctamente.');
     }
 
     public function edit(NivelPrecio $niveles_precio)
     {
-        return view('niveles_precio.edit', ['nivel' => $niveles_precio]);
+        return view('niveles-precio.edit', ['nivel' => $niveles_precio]);
     }
 
     public function update(Request $request, NivelPrecio $niveles_precio)
@@ -64,7 +64,7 @@ class NivelPrecioController extends Controller
             'nombre' => $request->nombre,
         ]);
 
-        return redirect()->route('niveles_precio.index')->with('success', 'Nivel actualizado correctamente.');
+        return redirect()->route('niveles-precio.index')->with('success', 'Nivel actualizado correctamente.');
     }
 
     public function destroy(NivelPrecio $niveles_precio)
@@ -85,7 +85,7 @@ class NivelPrecioController extends Controller
 
         $niveles_precio->delete();
 
-        return redirect()->route('niveles_precio.index')->with('success', 'Nivel eliminado correctamente.');
+        return redirect()->route('niveles-precio.index')->with('success', 'Nivel eliminado correctamente.');
     }
 
     public function toggle(NivelPrecio $niveles_precio)

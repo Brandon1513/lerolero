@@ -401,7 +401,7 @@ class VentaController extends Controller
                         'monto'       => (float) $pago['monto'],
                         'referencia'  => $pago['referencia'] ?? null,
                         'cobrador_id' => $vendedor->id,
-                        'fecha'       => now(),
+                        
                     ]);
                 }
                 
@@ -561,7 +561,6 @@ class VentaController extends Controller
                 'monto'       => $montoAbono,
                 'referencia'  => $request->referencia,
                 'cobrador_id' => $vendedor->id,
-                'fecha'       => now(),
             ]);
 
             $totalPagado = (float) $venta->pagos()->sum('monto');

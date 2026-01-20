@@ -7,20 +7,6 @@
 
     <div class="py-12">
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-
-            {{-- ✅ Mensajes --}}
-            @if (session('success'))
-                <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">
-                    {{ session('success') }}
-                </div>
-            @endif
-
-            @if (session('error'))
-                <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
-                    {{ session('error') }}
-                </div>
-            @endif
-
             <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
 

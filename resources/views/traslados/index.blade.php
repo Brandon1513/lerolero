@@ -4,18 +4,6 @@
     </x-slot>
 
     <div class="max-w-6xl py-12 mx-auto sm:px-6 lg:px-8">
-        <!-- Mensajes -->
-        @if (session('success'))
-            <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">
-                {{ session('success') }}
-            </div>
-        @endif
-        @if (session('error'))
-            <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
-                {{ session('error') }}
-            </div>
-        @endif
-
         <!-- Botón Crear -->
         <div class="mb-6">
             <a href="{{ route('traslados.create') }}"

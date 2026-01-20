@@ -9,7 +9,6 @@
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
             <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-
                     <!-- Botón Agregar -->
                     <div class="mb-4">
                         <a href="{{ route('promociones.create') }}"
@@ -32,8 +31,16 @@
                                     <th class="px-4 py-2 text-center border">Acciones</th>
                                 </tr>
                             </thead>
+
                             <tbody>
                                 @foreach ($promociones as $promo)
+                                    @php
+                                        // ✅ Si ya fue usada en ventas, NO mostrar eliminar
+                                        $tieneVentas = \Illuminate\Support\Facades\DB::table('venta_promociones')
+                                            ->where('promocion_id', $promo->id)
+                                            ->exists();
+                                    @endphp
+
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-4 py-2 font-semibold border">
                                             {{ $promo->nombre }}
@@ -67,6 +74,7 @@
                                                     &nbsp;–&nbsp;
                                                     {{ $promo->fecha_fin ? $promo->fecha_fin->format('d/m/Y') : '—' }}
                                                 </span>
+
                                                 {{-- chip de vigencia --}}
                                                 @php
                                                     $vig = $promo->vigencia_estado; // proxima | vigente | expirada
@@ -76,9 +84,17 @@
                                                         'expirada' => 'bg-red-100 text-red-700',
                                                     ];
                                                 @endphp
-                                                <span class="mt-1 inline-block px-2 py-0.5 text-xs rounded {{ $colors[$vig] }}">
+
+                                                <span class="mt-1 inline-block px-2 py-0.5 text-xs rounded {{ $colors[$vig] ?? 'bg-gray-100 text-gray-700' }}">
                                                     {{ $promo->vigencia_label }}
                                                 </span>
+
+                                                {{-- Si ya tiene ventas, muestra un chip informativo --}}
+                                                @if($tieneVentas)
+                                                    <span class="mt-1 inline-block px-2 py-0.5 text-xs rounded bg-amber-100 text-amber-800">
+                                                        Usada en ventas
+                                                    </span>
+                                                @endif
                                             </div>
                                         </td>
 
@@ -108,15 +124,24 @@
                                                         Editar
                                                     </a>
 
-                                                    <form action="{{ route('promociones.destroy', $promo) }}"
-                                                          method="POST"
-                                                          onsubmit="return confirm('Eliminar esta promoción?')">
-                                                        @csrf @method('DELETE')
-                                                        <button type="submit"
-                                                                class="px-3 py-1 text-white bg-red-500 rounded-md hover:bg-red-700">
+                                                    {{-- ✅ Solo mostrar eliminar si NO tiene ventas --}}
+                                                    @if(!$tieneVentas)
+                                                        <form action="{{ route('promociones.destroy', $promo) }}"
+                                                              method="POST"
+                                                              onsubmit="return confirm('Eliminar esta promoción?')">
+                                                            @csrf @method('DELETE')
+                                                            <button type="submit"
+                                                                    class="px-3 py-1 text-white bg-red-500 rounded-md hover:bg-red-700">
+                                                                Eliminar
+                                                            </button>
+                                                        </form>
+                                                    @else
+                                                        <button type="button"
+                                                                class="px-3 py-1 text-white bg-red-300 rounded-md cursor-not-allowed"
+                                                                title="No se puede eliminar porque ya fue usada en ventas">
                                                             Eliminar
                                                         </button>
-                                                    </form>
+                                                    @endif
                                                 </div>
                                             </div>
                                         </td>

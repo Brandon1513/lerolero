@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Promocion;
 use App\Models\Producto;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PromocionController extends Controller
 {
@@ -34,7 +35,6 @@ class PromocionController extends Controller
             'fecha_fin' => 'nullable|date|after_or_equal:fecha_inicio',
             'productos' => 'required|array',
             'productos.*.cantidad' => 'required|integer|min:1',
-
         ]);
 
         $promocion = Promocion::create([
@@ -46,7 +46,6 @@ class PromocionController extends Controller
             'activo' => true,
         ]);
 
-
         $datosProductos = [];
         foreach ($request->productos as $id => $data) {
             $datosProductos[$id] = ['cantidad' => $data['cantidad']];
@@ -57,19 +56,17 @@ class PromocionController extends Controller
         return redirect()->route('promociones.index')->with('success', 'Promoción creada con éxito.');
     }
 
-   public function edit(Promocion $promocion)
+    public function edit(Promocion $promocion)
     {
         $productos = Producto::where('activo', true)->get();
 
-        // Correcto: clave = producto_id (id), valor = cantidad
+        // clave = producto_id, valor = cantidad
         $productosSeleccionados = $promocion->productos->pluck('pivot.cantidad', 'id')->toArray();
 
         return view('promociones.edit', compact('promocion', 'productos', 'productosSeleccionados'));
     }
 
-
-
-   public function update(Request $request, Promocion $promocion)
+    public function update(Request $request, Promocion $promocion)
     {
         $request->validate([
             'nombre' => 'required|string|max:100',
@@ -79,7 +76,6 @@ class PromocionController extends Controller
             'fecha_fin' => 'nullable|date|after_or_equal:fecha_inicio',
             'productos' => 'required|array',
             'productos.*.cantidad' => 'required|integer|min:1',
-
         ]);
 
         $promocion->update([
@@ -97,24 +93,37 @@ class PromocionController extends Controller
 
         $promocion->productos()->sync($datosProductos);
 
-
         return redirect()->route('promociones.index')->with('success', 'Promoción actualizada.');
     }
 
-
     public function destroy(Promocion $promocion)
-    {
-        $promocion->productos()->detach();
-        $promocion->delete();
+{
+    $tieneVentas = DB::table('venta_promociones')
+        ->where('promocion_id', $promocion->id)
+        ->exists();
 
-        return redirect()->route('promociones.index')->with('success', 'Promoción eliminada.');
+    if ($tieneVentas) {
+        // ✅ Solo inactivar (NO quitar productos)
+        $promocion->activo = false;
+        $promocion->save();
+
+        return redirect()
+            ->route('promociones.index')
+            ->with('error', 'No se puede eliminar: la promoción ya fue utilizada en ventas. Se inactivó en su lugar.');
     }
+
+    // ✅ Si no tiene ventas, ahora sí se elimina completamente
+    $promocion->productos()->detach();
+    $promocion->delete();
+
+    return redirect()->route('promociones.index')->with('success', 'Promoción eliminada.');
+}
+
     public function toggle(Promocion $promocion)
     {
-        $promocion->activo = !$promocion->activo;
+        $promocion->activo = ! (bool) $promocion->activo;
         $promocion->save();
 
         return redirect()->route('promociones.index')->with('success', 'Estado actualizado.');
     }
-
 }
