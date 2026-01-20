@@ -139,46 +139,101 @@ class DashboardController extends Controller
             });
 
         // 🗺️ VISITAS Y CONVERSIÓN
-        $visitasStats = null;
-        if (DB::getSchemaBuilder()->hasTable('visitas_clientes')) {
-            $visitasQuery = VisitaCliente::whereBetween('fecha_visita', [$fechaInicio, $fechaFin]);
+$visitasStats = null;
 
-            $totalVisitas     = (int) $visitasQuery->count();
-            $visitasConVenta  = (int) $visitasQuery->clone()->where('realizo_venta', true)->count();
-            $visitasSinVenta  = $totalVisitas - $visitasConVenta;
-            $tasaConversion   = $totalVisitas > 0 ? ($visitasConVenta / $totalVisitas) * 100 : 0;
+if (DB::getSchemaBuilder()->hasTable('visitas_clientes')) {
 
-            $motivosNoVenta = VisitaCliente::whereBetween('fecha_visita', [$fechaInicio, $fechaFin])
-                ->where('realizo_venta', false)
-                ->whereNotNull('motivo_no_venta')
-                ->select('motivo_no_venta', DB::raw('COUNT(*) as total'))
-                ->groupBy('motivo_no_venta')
-                ->orderByDesc('total')
-                ->limit(5)
-                ->get()
-                ->map(function ($m) {
-                    $labels = [
-                        'sin_dinero'         => 'Sin dinero',
-                        'sin_stock_deseado'  => 'Sin stock',
-                        'precios_altos'      => 'Precios altos',
-                        'cliente_ausente'    => 'Ausente',
-                        'cliente_no_necesita'=> 'No necesita',
-                        'otro'               => 'Otro',
-                    ];
-                    return [
-                        'motivo' => $labels[$m->motivo_no_venta] ?? $m->motivo_no_venta,
-                        'total'  => (int) $m->total,
-                    ];
-                });
+    // Query base (rango de fechas)
+    $visitasBase = VisitaCliente::query()
+        ->entreFechas($fechaInicio, $fechaFin);
 
-            $visitasStats = [
-                'total'          => $totalVisitas,
-                'con_venta'      => $visitasConVenta,
-                'sin_venta'      => $visitasSinVenta,
-                'tasa_conversion'=> round($tasaConversion, 2),
-                'motivos_no_venta'=> $motivosNoVenta,
+    $totalVisitas    = (int) $visitasBase->count();
+    $visitasConVenta = (int) $visitasBase->clone()->conVenta()->count();
+    $visitasSinVenta = $totalVisitas - $visitasConVenta;
+
+    $tasaConversion  = $totalVisitas > 0 ? ($visitasConVenta / $totalVisitas) * 100 : 0;
+
+    // Motivos (Top 5)
+    $motivosNoVenta = $visitasBase->clone()
+        ->sinVenta()
+        ->whereNotNull('motivo_no_venta')
+        ->select('motivo_no_venta', DB::raw('COUNT(*) as total'))
+        ->groupBy('motivo_no_venta')
+        ->orderByDesc('total')
+        ->limit(5)
+        ->get()
+        ->map(function ($m) {
+            $labels = [
+                'sin_dinero'          => 'Sin dinero',
+                'sin_stock_deseado'   => 'Sin stock',
+                'precios_altos'       => 'Precios altos',
+                'cliente_ausente'     => 'Ausente',
+                'cliente_no_necesita' => 'No necesita',
+                'otro'                => 'Otro',
             ];
-        }
+
+            return [
+                'motivo' => $labels[$m->motivo_no_venta] ?? $m->motivo_no_venta,
+                'total'  => (int) $m->total,
+            ];
+        });
+
+    /**
+     * ⭐ NUEVO: Clientes sin venta (agrupado)
+     * - nombre del cliente
+     * - total de visitas sin venta
+     * - última visita en el rango
+     */
+    $clientesSinVenta = $visitasBase->clone()
+        ->sinVenta()
+        ->with('cliente:id,nombre')
+        ->select('cliente_id', DB::raw('COUNT(*) as total'), DB::raw('MAX(fecha_visita) as ultima_fecha'))
+        ->groupBy('cliente_id')
+        ->orderByDesc('total')
+        ->limit(10) // puedes subirlo a 20 si quieres
+        ->get()
+        ->map(function ($row) {
+            return [
+                'cliente_id'   => $row->cliente_id,
+                'cliente'      => $row->cliente->nombre ?? 'N/D',
+                'total'        => (int) $row->total,
+                'ultima_fecha' => $row->ultima_fecha ? Carbon::parse($row->ultima_fecha)->format('Y-m-d') : null,
+            ];
+        });
+
+    /**
+     * (Opcional pro) Últimas visitas sin venta (bitácora)
+     * para ver “quién” y “cuándo” sin agrupar
+     */
+    $ultimasVisitasSinVenta = $visitasBase->clone()
+        ->sinVenta()
+        ->with(['cliente:id,nombre', 'user:id,name'])
+        ->orderByDesc('fecha_visita')
+        ->limit(10)
+        ->get()
+        ->map(function ($v) {
+            return [
+                'fecha'   => $v->fecha_visita ? $v->fecha_visita->format('Y-m-d') : null,
+                'hora'    => $v->hora_visita_formateada,
+                'cliente' => $v->cliente->nombre ?? 'N/D',
+                'vendedor'=> $v->user->name ?? 'N/D',
+                'motivo'  => $v->motivo_no_venta_legible ?? '—',
+            ];
+        });
+
+    $visitasStats = [
+        'total'                => $totalVisitas,
+        'con_venta'            => $visitasConVenta,
+        'sin_venta'            => $visitasSinVenta,
+        'tasa_conversion'      => round($tasaConversion, 2),
+        'motivos_no_venta'     => $motivosNoVenta,
+
+        // ✅ NUEVO
+        'clientes_sin_venta'   => $clientesSinVenta,
+        'ultimas_sin_venta'    => $ultimasVisitasSinVenta,
+    ];
+}
+
 
         // ✅ INVENTARIO (tu tabla inventario_almacen)
         $unidadesTotalesInventario = (int) DB::table('inventario_almacen')

@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                📊 Dashboard - Panel de Control
+                 Dashboard - Panel de Control
             </h2>
 
             <!-- Filtro de fechas -->
@@ -208,7 +208,7 @@
                  ACCESOS RÁPIDOS
             ======================================== -->
             <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">⚡ Accesos Rápidos</h3>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4"> Accesos Rápidos</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
 
                     <a href="{{ route('ventas.create') }}" class="flex flex-col items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
@@ -268,19 +268,19 @@
 
                 <!-- Ventas por Día -->
                 <div class="bg-white shadow-lg rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📈 Ventas por Día (últimos 30 días)</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4"> Ventas por Día (últimos 30 días)</h3>
                     <canvas id="ventasPorDiaChart"></canvas>
                 </div>
 
                 <!-- Ventas por Categoría -->
                 <div class="bg-white shadow-lg rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 Ventas por Categoría</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4"> Ventas por Categoría</h3>
                     <canvas id="ventasPorCategoriaChart"></canvas>
                 </div>
 
                 <!-- Inventario por Almacén (Chart) -->
                 <div class="bg-white shadow-lg rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">🏬 Inventario por Almacén</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4"> Inventario por Almacén</h3>
                     <canvas id="inventarioPorAlmacenChart"></canvas>
                 </div>
 
@@ -290,21 +290,19 @@
                  TOP 10 PRÓXIMOS A CADUCAR
             ======================================== -->
             @php
-            // Conserva el resto de filtros (fechas, etc.) al cambiar caducidad
+                // Conserva el resto de filtros (fechas, etc.) al cambiar caducidad
                 $baseQuery = request()->except('caducan_en');
             @endphp
 
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">⏳ Próximos a caducar</h3>
+                    <h3 class="text-lg font-semibold text-gray-900"> Próximos a caducar</h3>
                     <p class="text-sm text-gray-500">Mostrando Top 10 que caducan en ≤ {{ $caducanEn }} días.</p>
                 </div>
 
                 <div class="flex gap-2">
                     @foreach([7, 15, 30] as $d)
-                        @php
-                            $isActive = (int)$caducanEn === $d;
-                        @endphp
+                        @php $isActive = (int)$caducanEn === $d; @endphp
                         <a
                             href="{{ route('dashboard', array_merge($baseQuery, ['caducan_en' => $d])) }}"
                             class="px-3 py-2 rounded-md text-sm font-semibold border transition
@@ -326,7 +324,7 @@
 
             <div class="bg-white shadow-lg rounded-lg overflow-hidden mb-6">
                 <div class="px-6 py-4 bg-red-600">
-                    <h3 class="text-lg font-semibold text-white">⏳ Top 10 Próximos a Caducar</h3>
+                    <h3 class="text-lg font-semibold text-white"> Top 10 Próximos a Caducar</h3>
                 </div>
 
                 <div class="p-6">
@@ -342,72 +340,71 @@
                             </tr>
                         </thead>
                         <tbody>
-                    @forelse($topCaducidad as $row)
-                        @php
-                            $dias = \Carbon\Carbon::today()->diffInDays(\Carbon\Carbon::parse($row->fecha_caducidad), false);
+                        @forelse($topCaducidad as $row)
+                            @php
+                                $dias = \Carbon\Carbon::today()->diffInDays(\Carbon\Carbon::parse($row->fecha_caducidad), false);
 
-                            $badgeClass = $dias < 0
-                                ? 'bg-gray-100 text-gray-700'
-                                : ($dias <= 7
-                                    ? 'bg-red-100 text-red-800'
-                                    : ($dias <= 30
-                                        ? 'bg-yellow-100 text-yellow-800'
-                                        : 'bg-green-100 text-green-800'));
+                                $badgeClass = $dias < 0
+                                    ? 'bg-gray-100 text-gray-700'
+                                    : ($dias <= 7
+                                        ? 'bg-red-100 text-red-800'
+                                        : ($dias <= 30
+                                            ? 'bg-yellow-100 text-yellow-800'
+                                            : 'bg-green-100 text-green-800'));
 
-                            $diasLabel = $dias < 0 ? 'Vencido' : $dias . ' días';
+                                $diasLabel = $dias < 0 ? 'Vencido' : $dias . ' días';
 
-                            // URLs seguras (si la ruta no existe, cae a index)
-                            $productoUrl =
-                                \Illuminate\Support\Facades\Route::has('productos.show')
-                                    ? route('productos.show', $row->producto_id)
-                                    : (\Illuminate\Support\Facades\Route::has('productos.edit')
-                                        ? route('productos.edit', $row->producto_id)
-                                        : route('productos.index'));
+                                // URLs seguras (si la ruta no existe, cae a index)
+                                $productoUrl =
+                                    \Illuminate\Support\Facades\Route::has('productos.show')
+                                        ? route('productos.show', $row->producto_id)
+                                        : (\Illuminate\Support\Facades\Route::has('productos.edit')
+                                            ? route('productos.edit', $row->producto_id)
+                                            : route('productos.index'));
 
-                            $almacenUrl =
-                                \Illuminate\Support\Facades\Route::has('almacenes.show')
-                                    ? route('almacenes.show', $row->almacen_id)
-                                    : (\Illuminate\Support\Facades\Route::has('almacenes.edit')
-                                        ? route('almacenes.edit', $row->almacen_id)
-                                        : route('almacenes.index'));
-                        @endphp
+                                $almacenUrl =
+                                    \Illuminate\Support\Facades\Route::has('almacenes.show')
+                                        ? route('almacenes.show', $row->almacen_id)
+                                        : (\Illuminate\Support\Facades\Route::has('almacenes.edit')
+                                            ? route('almacenes.edit', $row->almacen_id)
+                                            : route('almacenes.index'));
+                            @endphp
 
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="py-3 text-sm font-medium">
-                                <a href="{{ $productoUrl }}" class="text-blue-700 hover:text-blue-900 hover:underline">
-                                    {{ $row->producto }}
-                                </a>
-                            </td>
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="py-3 text-sm font-medium">
+                                    <a href="{{ $productoUrl }}" class="text-blue-700 hover:text-blue-900 hover:underline">
+                                        {{ $row->producto }}
+                                    </a>
+                                </td>
 
-                            <td class="py-3 text-sm text-gray-700">{{ $row->lote }}</td>
+                                <td class="py-3 text-sm text-gray-700">{{ $row->lote }}</td>
 
-                            <td class="py-3 text-sm">
-                                <a href="{{ $almacenUrl }}" class="text-indigo-700 hover:text-indigo-900 hover:underline">
-                                    {{ $row->almacen }}
-                                </a>
-                            </td>
+                                <td class="py-3 text-sm">
+                                    <a href="{{ $almacenUrl }}" class="text-indigo-700 hover:text-indigo-900 hover:underline">
+                                        {{ $row->almacen }}
+                                    </a>
+                                </td>
 
-                            <td class="py-3 text-sm text-gray-700">
-                                {{ \Carbon\Carbon::parse($row->fecha_caducidad)->format('Y-m-d') }}
-                            </td>
+                                <td class="py-3 text-sm text-gray-700">
+                                    {{ \Carbon\Carbon::parse($row->fecha_caducidad)->format('Y-m-d') }}
+                                </td>
 
-                            <td class="py-3 text-sm">
-                                <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $badgeClass }}">
-                                    {{ $diasLabel }}
-                                </span>
-                            </td>
+                                <td class="py-3 text-sm">
+                                    <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $badgeClass }}">
+                                        {{ $diasLabel }}
+                                    </span>
+                                </td>
 
-                            <td class="py-3 text-sm text-right font-semibold text-gray-900">
-                                {{ number_format($row->cantidad) }}
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="py-4 text-center text-gray-500">Sin datos</td>
-                        </tr>
-                    @endforelse
-                    </tbody>
-
+                                <td class="py-3 text-sm text-right font-semibold text-gray-900">
+                                    {{ number_format($row->cantidad) }}
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="py-4 text-center text-gray-500">Sin datos</td>
+                            </tr>
+                        @endforelse
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -420,7 +417,7 @@
                 <!-- Top Vendedores -->
                 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
                     <div class="px-6 py-4 bg-blue-600">
-                        <h3 class="text-lg font-semibold text-white">🏆 Top Vendedores</h3>
+                        <h3 class="text-lg font-semibold text-white"> Top Vendedores</h3>
                     </div>
                     <div class="p-6">
                         <table class="min-w-full">
@@ -454,7 +451,7 @@
                 <!-- Top Clientes -->
                 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
                     <div class="px-6 py-4 bg-green-600">
-                        <h3 class="text-lg font-semibold text-white">🏆 Top Clientes</h3>
+                        <h3 class="text-lg font-semibold text-white"> Top Clientes</h3>
                     </div>
                     <div class="p-6">
                         <table class="min-w-full">
@@ -488,7 +485,7 @@
                 <!-- Top Productos -->
                 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
                     <div class="px-6 py-4 bg-purple-600">
-                        <h3 class="text-lg font-semibold text-white">🏆 Top Productos</h3>
+                        <h3 class="text-lg font-semibold text-white"> Top Productos</h3>
                     </div>
                     <div class="p-6">
                         <table class="min-w-full">
@@ -526,7 +523,7 @@
             ======================================== -->
             @if($visitasStats)
                 <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">🗺️ Estadísticas de Visitas</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4"> Estadísticas de Visitas</h3>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                         <div class="bg-blue-50 p-4 rounded-lg">
                             <div class="text-2xl font-bold text-blue-600">{{ $visitasStats['total'] }}</div>
@@ -559,6 +556,80 @@
                             </div>
                         </div>
                     @endif
+
+                    {{-- ✅ NUEVO: Clientes sin venta --}}
+                    @if(isset($visitasStats['clientes_sin_venta']) && $visitasStats['clientes_sin_venta']->count() > 0)
+                        <div class="mt-6">
+                            <h4 class="font-semibold text-gray-700 mb-3">Clientes sin venta (Top {{ $visitasStats['clientes_sin_venta']->count() }})</h4>
+
+                            <div class="overflow-x-auto border rounded-lg">
+                                <table class="min-w-full text-sm">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Cliente</th>
+                                            <th class="text-center px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Visitas sin venta</th>
+                                            <th class="text-right px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Última visita</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($visitasStats['clientes_sin_venta'] as $row)
+                                            @php
+                                                $clienteUrl = \Illuminate\Support\Facades\Route::has('clientes.show')
+                                                    ? route('clientes.show', $row['cliente_id'])
+                                                    : (\Illuminate\Support\Facades\Route::has('clientes.edit')
+                                                        ? route('clientes.edit', $row['cliente_id'])
+                                                        : route('clientes.index'));
+                                            @endphp
+                                            <tr class="border-t hover:bg-gray-50">
+                                                <td class="px-4 py-2">
+                                                    <a href="{{ $clienteUrl }}" class="text-blue-700 hover:underline">
+                                                        {{ $row['cliente'] }}
+                                                    </a>
+                                                </td>
+                                                <td class="px-4 py-2 text-center font-semibold text-gray-900">
+                                                    {{ $row['total'] }}
+                                                </td>
+                                                <td class="px-4 py-2 text-right text-gray-700">
+                                                    {{ $row['ultima_fecha'] ?? '—' }}
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- ✅ NUEVO: Últimas visitas sin venta --}}
+                    @if(isset($visitasStats['ultimas_sin_venta']) && $visitasStats['ultimas_sin_venta']->count() > 0)
+                        <div class="mt-6">
+                            <h4 class="font-semibold text-gray-700 mb-3">Últimas visitas sin venta</h4>
+
+                            <div class="overflow-x-auto border rounded-lg">
+                                <table class="min-w-full text-sm">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Fecha</th>
+                                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Cliente</th>
+                                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Vendedor</th>
+                                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-600 uppercase">Motivo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($visitasStats['ultimas_sin_venta'] as $r)
+                                            <tr class="border-t hover:bg-gray-50">
+                                                <td class="px-4 py-2 text-gray-700">{{ $r['fecha'] }} {{ $r['hora'] ? '· '.$r['hora'] : '' }}</td>
+                                                <td class="px-4 py-2 text-gray-900">{{ $r['cliente'] }}</td>
+                                                <td class="px-4 py-2 text-gray-700">{{ $r['vendedor'] }}</td>
+                                                <td class="px-4 py-2 text-gray-700">{{ $r['motivo'] }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+
                 </div>
             @endif
 
