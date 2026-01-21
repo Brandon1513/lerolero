@@ -29,6 +29,7 @@ class ClienteMovilController extends Controller
 
         $q = Cliente::query()
             ->where('asignado_a', $user->id)
+            ->where('clientes.activo', true)
             ->leftJoinSub($saldoSub, 'v', function ($join) {
                 $join->on('v.cliente_id', '=', 'clientes.id');
             })
@@ -81,6 +82,7 @@ class ClienteMovilController extends Controller
         $hoy = now()->toDateString();
 
         $clientes = Cliente::where('asignado_a', $user->id)
+                    ->where('activo', true)
                     ->whereJsonContains('dias_visita', $dia)
                     ->get();
 
