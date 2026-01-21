@@ -19,21 +19,110 @@ use Carbon\Carbon;
 class CierreRutaController extends Controller
 {
     public function index(Request $request)
-    {
-        $cierres = CierreRuta::with('vendedor', 'cerradoPor')
-            ->when($request->vendedor_id, fn($q) => $q->where('vendedor_id', $request->vendedor_id))
-            ->when($request->fecha_inicio, fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
-            ->when($request->fecha_fin, fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
-            ->when($request->estatus, fn($q) => $q->where('estatus', $request->estatus))
-            ->when($request->cerrado_por, fn($q) => $q->where('cerrado_por', $request->cerrado_por))
-            ->orderBy('fecha', 'desc')
-            ->paginate(10);
+{
+    $cierres = CierreRuta::with('vendedor', 'cerradoPor')
+        ->when($request->vendedor_id, fn($q) => $q->where('vendedor_id', $request->vendedor_id))
+        ->when($request->fecha_inicio, fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
+        ->when($request->fecha_fin, fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
+        ->when($request->estatus, fn($q) => $q->where('estatus', $request->estatus))
+        ->when($request->cerrado_por, fn($q) => $q->where('cerrado_por', $request->cerrado_por))
+        ->orderBy('fecha', 'desc')
+        ->paginate(10);
 
-        $vendedores = User::role('vendedor')->get();
-        $admins = User::role('administrador')->get();
+    $vendedores = User::role('vendedor')->get();
+    $admins     = User::role('administrador')->get();
 
-        return view('cierres.index', compact('cierres', 'vendedores', 'admins'));
+    // ✅ Resumen por cierre (solo los de la página actual)
+    $resumenIndex = [];
+    foreach ($cierres as $cierre) {
+        $resumenIndex[$cierre->id] = $this->buildResumenIndex($cierre);
     }
+
+    return view('cierres.index', compact('cierres', 'vendedores', 'admins', 'resumenIndex'));
+}
+
+private function buildResumenIndex(CierreRuta $cierre): array
+{
+    $fecha = Carbon::parse($cierre->fecha)->toDateString();
+
+    // =========================
+    // 1) Ventas del día
+    // =========================
+    $ventasDiaTotal = (float) Venta::query()
+        ->where('vendedor_id', $cierre->vendedor_id)
+        ->whereDate('fecha', $fecha) // si no tienes 'fecha', usa created_at
+        ->sum('total');
+
+    // ✅ Pagos cobrados HOY por este vendedor (cobrador)
+    $pagosHoyBase = PagoVenta::query()
+        ->whereDate('created_at', $fecha)
+        ->where('cobrador_id', $cierre->vendedor_id);
+
+    // =========================
+    // 2) Cobrado hoy (TOTAL)
+    // =========================
+    $cobradoHoyTotal = (float) (clone $pagosHoyBase)->sum('monto');
+
+    // =========================
+    // 3) Cobrado hoy (ventas del día)
+    // =========================
+    $cobradoHoyVentasDia = (float) (clone $pagosHoyBase)
+        ->whereHas('venta', fn($q) => $q->whereDate('fecha', $fecha))
+        ->sum('monto');
+
+    // =========================
+    // 4) Cobrado hoy (saldos anteriores)
+    // =========================
+    $cobradoHoySaldosAnteriores = (float) (clone $pagosHoyBase)
+        ->whereHas('venta', fn($q) => $q->whereDate('fecha', '<', $fecha))
+        ->sum('monto');
+
+    // =========================
+    // 5) Crédito del día (lo que quedó pendiente HOY)
+    // =========================
+    $creditoDiaTotal = max($ventasDiaTotal - $cobradoHoyVentasDia, 0);
+
+    // =========================
+    // 6) Chips por método
+    //    - metodos: cobrado hoy TOTAL
+    //    - metodos_dia: cobrado hoy pero aplicado a ventas del día
+    //    - metodos_anteriores: cobrado hoy aplicado a saldos anteriores
+    // =========================
+    $metodosTotal = (clone $pagosHoyBase)
+        ->selectRaw('metodo, SUM(monto) as total')
+        ->groupBy('metodo')
+        ->pluck('total', 'metodo')
+        ->toArray();
+
+    $metodosDia = (clone $pagosHoyBase)
+        ->whereHas('venta', fn($q) => $q->whereDate('fecha', $fecha))
+        ->selectRaw('metodo, SUM(monto) as total')
+        ->groupBy('metodo')
+        ->pluck('total', 'metodo')
+        ->toArray();
+
+    $metodosAnterior = (clone $pagosHoyBase)
+        ->whereHas('venta', fn($q) => $q->whereDate('fecha', '<', $fecha))
+        ->selectRaw('metodo, SUM(monto) as total')
+        ->groupBy('metodo')
+        ->pluck('total', 'metodo')
+        ->toArray();
+
+    return [
+        'ventas_dia_total'              => $ventasDiaTotal,
+        'cobrado_hoy_total'             => $cobradoHoyTotal,
+        'cobrado_hoy_ventas_dia'        => $cobradoHoyVentasDia,
+        'cobrado_hoy_saldos_anteriores' => $cobradoHoySaldosAnteriores,
+        'credito_dia_total'             => $creditoDiaTotal,
+
+        // ✅ para chips en la columna “Cobrado hoy”
+        'metodos'                       => $metodosTotal,
+
+        // ✅ opcionales si luego quieres chips extra
+        'metodos_dia'                   => $metodosDia,
+        'metodos_anteriores'            => $metodosAnterior,
+    ];
+}
 
     public function show(CierreRuta $cierre)
 {
