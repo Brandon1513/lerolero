@@ -37,7 +37,7 @@ class CierreRutaController extends Controller
 
     public function show(CierreRuta $cierre)
 {
-    $cierre->load('vendedor');
+    $cierre->load(['vendedor', 'cerradoPor']);
 
     $fecha = Carbon::parse($cierre->fecha)->toDateString();
     $vendedorId = $cierre->vendedor_id;
@@ -50,112 +50,116 @@ class CierreRutaController extends Controller
 
     $ventasDiaIds = $ventasDia->pluck('id')->all();
 
-    $totalVentasDia     = (float) $ventasDia->sum('total');
-    $totalPagadoEnVentasDia = (float) $ventasDia->sum('total_pagado');
-    $saldoPendienteDia  = (float) $ventasDia->sum('saldo_pendiente');
+    $totalVentasDia          = (float) $ventasDia->sum('total');
+    $totalPagadoEnVentasDia  = (float) $ventasDia->sum('total_pagado');
+    $saldoPendienteDia       = (float) $ventasDia->sum('saldo_pendiente'); // ✅ lo que se fue a crédito HOY
+
+    // ✅ NUEVO: saldo pendiente acumulado del vendedor (todas las fechas)
+    $saldoPendienteAcumulado = (float) Venta::where('vendedor_id', $vendedorId)
+        ->whereIn('estado', ['credito', 'parcial'])
+        ->sum('saldo_pendiente');
 
     // Pagos cobrados HOY (pueden ser de ventas hoy o de ventas pasadas)
     $pagosHoy = PagoVenta::with('venta.cliente')
         ->where('cobrador_id', $vendedorId)
-        ->whereDate('created_at', $fecha)
+        ->whereDate('created_at', $fecha) // ✅ ojo: tu tabla no tiene columna "fecha", usa created_at
         ->get();
 
     $totalCobradoHoy = (float) $pagosHoy->sum('monto');
 
     // Separar pagos hoy: a ventas del día vs a ventas anteriores
-    $pagosHoyVentasDia = $pagosHoy->filter(fn($p) => in_array($p->venta_id, $ventasDiaIds));
+    $pagosHoyVentasDia        = $pagosHoy->filter(fn($p) => in_array($p->venta_id, $ventasDiaIds));
     $pagosHoyVentasAnteriores = $pagosHoy->filter(fn($p) => !in_array($p->venta_id, $ventasDiaIds));
 
-    $totalCobradoHoyVentasDia = (float) $pagosHoyVentasDia->sum('monto');
+    $totalCobradoHoyVentasDia        = (float) $pagosHoyVentasDia->sum('monto');
     $totalCobradoHoyVentasAnteriores = (float) $pagosHoyVentasAnteriores->sum('monto');
 
     // Desglose por método (HOY)
     $metodos = ['efectivo', 'transferencia', 'tarjeta'];
 
-    $metodosHoy = collect($metodos)->mapWithKeys(function ($m) use ($pagosHoy) {
-        return [$m => (float) $pagosHoy->where('metodo', $m)->sum('monto')];
-    })->toArray();
+    $metodosHoy = collect($metodos)->mapWithKeys(fn($m) => [
+        $m => (float) $pagosHoy->where('metodo', $m)->sum('monto')
+    ])->toArray();
 
-    $metodosHoyVentasDia = collect($metodos)->mapWithKeys(function ($m) use ($pagosHoyVentasDia) {
-        return [$m => (float) $pagosHoyVentasDia->where('metodo', $m)->sum('monto')];
-    })->toArray();
+    $metodosHoyVentasDia = collect($metodos)->mapWithKeys(fn($m) => [
+        $m => (float) $pagosHoyVentasDia->where('metodo', $m)->sum('monto')
+    ])->toArray();
 
-    $metodosHoyVentasAnteriores = collect($metodos)->mapWithKeys(function ($m) use ($pagosHoyVentasAnteriores) {
-        return [$m => (float) $pagosHoyVentasAnteriores->where('metodo', $m)->sum('monto')];
-    })->toArray();
+    $metodosHoyVentasAnteriores = collect($metodos)->mapWithKeys(fn($m) => [
+        $m => (float) $pagosHoyVentasAnteriores->where('metodo', $m)->sum('monto')
+    ])->toArray();
 
     // Para cuadrar caja: efectivo esperado hoy vs efectivo entregado (cuando cierre)
     $efectivoEsperadoHoy = (float) ($metodosHoy['efectivo'] ?? 0);
 
-    // Clientes con saldo pendiente DEL DÍA (como ya lo tenías)
+    // Clientes con saldo pendiente DEL DÍA
     $clientesPendientesDia = $ventasDia
         ->filter(fn($v) => (float)$v->saldo_pendiente > 0)
         ->groupBy('cliente_id')
         ->map(function ($rows) {
             $first = $rows->first();
             return [
-                'cliente' => $first->cliente?->nombre ?? '—',
-                'ventas' => $rows->count(),
+                'cliente'   => $first->cliente?->nombre ?? '—',
+                'ventas'    => $rows->count(),
                 'pendiente' => (float) $rows->sum('saldo_pendiente'),
             ];
         })->values();
 
-    // ✅ NUEVO: pagos de saldos anteriores agrupados por cliente (para que el admin lo vea clarito)
+    // Pagos de saldos anteriores agrupados por cliente
     $cobranzaAnteriorPorCliente = $pagosHoyVentasAnteriores
         ->groupBy(fn($p) => $p->venta?->cliente_id)
         ->map(function ($rows) {
             $first = $rows->first();
             return [
-                'cliente' => $first->venta?->cliente?->nombre ?? '—',
-                'monto' => (float) $rows->sum('monto'),
-                'ventas_involucradas' => $rows->pluck('venta_id')->unique()->count(),
+                'cliente'            => $first->venta?->cliente?->nombre ?? '—',
+                'monto'              => (float) $rows->sum('monto'),
+                'ventas_involucradas'=> $rows->pluck('venta_id')->unique()->count(),
             ];
         })->values();
 
+    // ✅ Detalle de pagos cobrados hoy (para tu tabla toggle)
+    $pagosHoyDetalle = $pagosHoy->map(function ($p) {
+        return [
+            'cliente'     => $p->venta?->cliente?->nombre ?? '—',
+            'venta_id'    => $p->venta_id,
+            'fecha_venta' => optional($p->venta?->fecha)->format('d/m/Y') ?? '—',
+            'fecha_cobro' => optional($p->created_at)->format('d/m/Y H:i') ?? '—',
+            'metodo'      => $p->metodo,
+            'monto'       => (float) $p->monto,
+            'referencia'  => $p->referencia,
+        ];
+    });
+
     $resumen = [
         'ventas_dia' => [
-            'total_ventas' => $totalVentasDia,
+            'total_ventas'           => $totalVentasDia,
             'total_pagado_en_ventas' => $totalPagadoEnVentasDia,
-            'saldo_pendiente' => $saldoPendienteDia,
-            'count_credito' => $ventasDia->where('estado', 'credito')->count(),
-            'count_parcial' => $ventasDia->where('estado', 'parcial')->count(),
-            'count_pagada'  => $ventasDia->where('estado', 'pagada')->count(),
+            'saldo_pendiente'        => $saldoPendienteDia,
+            'count_credito'          => $ventasDia->where('estado', 'credito')->count(),
+            'count_parcial'          => $ventasDia->where('estado', 'parcial')->count(),
+            'count_pagada'           => $ventasDia->where('estado', 'pagada')->count(),
         ],
         'cobros_hoy' => [
-            'total' => $totalCobradoHoy,
-            'ventas_dia' => $totalCobradoHoyVentasDia,
-            'ventas_anteriores' => $totalCobradoHoyVentasAnteriores,
-            'metodos' => $metodosHoy,
-            'metodos_ventas_dia' => $metodosHoyVentasDia,
-            'metodos_ventas_anteriores' => $metodosHoyVentasAnteriores,
-            'efectivo_esperado' => $efectivoEsperadoHoy,
+            'total'                   => $totalCobradoHoy,
+            'ventas_dia'              => $totalCobradoHoyVentasDia,
+            'ventas_anteriores'       => $totalCobradoHoyVentasAnteriores,
+            'metodos'                 => $metodosHoy,
+            'metodos_ventas_dia'      => $metodosHoyVentasDia,
+            'metodos_ventas_anteriores'=> $metodosHoyVentasAnteriores,
+            'efectivo_esperado'       => $efectivoEsperadoHoy,
         ],
     ];
-
-    $pagosHoyDetalle = $pagosHoy->map(function ($p) {
-    return [
-        'cliente'        => $p->venta?->cliente?->nombre ?? '—',
-        'venta_id'       => $p->venta_id,
-        'fecha_venta'    => optional($p->venta?->fecha)->format('d/m/Y') ?? '—',
-        'metodo'         => $p->metodo,
-        'monto'          => (float) $p->monto,
-        'referencia'     => $p->referencia,
-        'fecha_cobro'    => optional($p->created_at)->format('d/m/Y H:i'),
-    ];
-});
-
 
     return view('cierres.show', compact(
         'cierre',
         'resumen',
         'clientesPendientesDia',
         'cobranzaAnteriorPorCliente',
-        'pagosHoy',                  // ✅ opcional para tabla
-        'pagosHoyVentasDia',         // ✅ opcional para tabla
-        'pagosHoyVentasAnteriores',  // ✅ opcional para tabla
         'pagosHoyDetalle',
+        'saldoPendienteAcumulado'
     ));
 }
+
 
     public function update(Request $request, CierreRuta $cierre)
 {

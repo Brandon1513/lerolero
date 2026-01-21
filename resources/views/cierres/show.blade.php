@@ -49,6 +49,105 @@
                 </div>
             </div>
 
+            {{-- ✅ Mini-card PREMIUM: resumen 2 segundos + chips por método --}}
+@php
+    $cobroDia      = (float) ($resumen['cobros_hoy']['ventas_dia'] ?? 0);
+    $cobroAnterior = (float) ($resumen['cobros_hoy']['ventas_anteriores'] ?? 0);
+
+    $md = $resumen['cobros_hoy']['metodos_ventas_dia'] ?? [];
+    $ma = $resumen['cobros_hoy']['metodos_ventas_anteriores'] ?? [];
+
+    $diaEfe = (float) ($md['efectivo'] ?? 0);
+    $diaTra = (float) ($md['transferencia'] ?? 0);
+    $diaTar = (float) ($md['tarjeta'] ?? 0);
+
+    $antEfe = (float) ($ma['efectivo'] ?? 0);
+    $antTra = (float) ($ma['transferencia'] ?? 0);
+    $antTar = (float) ($ma['tarjeta'] ?? 0);
+@endphp
+
+<div class="mt-2">
+    @if(($cobroDia + $cobroAnterior) > 0.01)
+        <div class="flex items-start gap-3 p-4 border rounded-lg
+            {{ $cobroAnterior > 0.01 ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-gray-50 text-gray-700 border-gray-200' }}">
+            <div class="mt-0.5">
+                {{ $cobroAnterior > 0.01 ? '💡' : '✅' }}
+            </div>
+
+            <div class="w-full text-sm">
+                <div class="font-semibold">
+                    @if($cobroAnterior > 0.01)
+                        Hoy se cobraron ${{ number_format($cobroAnterior, 2) }} de saldos anteriores.
+                    @else
+                        Hoy no se cobró nada de saldos anteriores.
+                    @endif
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 mt-2 sm:grid-cols-2">
+                    {{-- Ventas del día --}}
+                    <div class="p-3 bg-white border rounded">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">Cobrado hoy de ventas del día:</span>
+                            <span class="font-semibold text-gray-900">${{ number_format($cobroDia, 2) }}</span>
+                        </div>
+
+                        {{-- Chips por método (ventas del día) --}}
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                💵 Efectivo: <span class="font-semibold">${{ number_format($diaEfe, 2) }}</span>
+                            </span>
+                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                🏦 Transfer: <span class="font-semibold">${{ number_format($diaTra, 2) }}</span>
+                            </span>
+                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                💳 Tarjeta: <span class="font-semibold">${{ number_format($diaTar, 2) }}</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    {{-- Saldos anteriores --}}
+                    <div class="p-3 bg-white border rounded">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">Cobrado hoy de saldos anteriores:</span>
+                            <span class="font-semibold {{ $cobroAnterior > 0.01 ? 'text-indigo-700' : 'text-gray-900' }}">
+                                ${{ number_format($cobroAnterior, 2) }}
+                            </span>
+                        </div>
+
+                        {{-- Chips por método (saldos anteriores) --}}
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                💵 Efectivo: <span class="font-semibold">${{ number_format($antEfe, 2) }}</span>
+                            </span>
+                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                🏦 Transfer: <span class="font-semibold">${{ number_format($antTra, 2) }}</span>
+                            </span>
+                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                💳 Tarjeta: <span class="font-semibold">${{ number_format($antTar, 2) }}</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-2 text-xs {{ $cobroAnterior > 0.01 ? 'text-indigo-700' : 'text-gray-500' }}">
+                    *Así se entiende rápido: cuánto fue del día vs cuánto fue de cobranza de saldos anteriores (y por método).
+                </div>
+            </div>
+        </div>
+    @else
+        <div class="flex items-start gap-3 p-4 text-gray-700 border rounded-lg bg-gray-50">
+            <div class="mt-0.5">✅</div>
+            <div class="text-sm">
+                <div class="font-semibold">Hoy no hubo cobros registrados.</div>
+                <div class="mt-1 text-xs text-gray-500">
+                    *No hay cobros de ventas del día ni de saldos anteriores.
+                </div>
+            </div>
+        </div>
+    @endif
+</div>
+
+
             {{-- Traslado --}}
             <div class="pt-2">
                 @if ($cierre->traslado_id)
@@ -233,59 +332,60 @@
                     </div>
                 </div>
             @endif
+
+            {{-- Detalle de pagos cobrados hoy (toggle) --}}
             <div class="p-4 mt-6 bg-white border rounded-lg" x-data="{ open:false }">
-    <div class="flex items-center justify-between">
-        <h4 class="font-semibold">Detalle de pagos cobrados hoy</h4>
+                <div class="flex items-center justify-between">
+                    <h4 class="font-semibold">Detalle de pagos cobrados hoy</h4>
 
-        <button type="button"
-                @click="open = !open"
-                class="px-3 py-2 text-sm font-medium text-white bg-gray-800 rounded hover:bg-gray-900">
-            <span x-text="open ? 'Ocultar' : 'Mostrar'"></span>
-        </button>
-    </div>
+                    <button type="button"
+                            @click="open = !open"
+                            class="px-3 py-2 text-sm font-medium text-white bg-gray-800 rounded hover:bg-gray-900">
+                        <span x-text="open ? 'Ocultar' : 'Mostrar'"></span>
+                    </button>
+                </div>
 
-    <div x-show="open" x-cloak class="mt-4">
-        @if(($pagosHoyDetalle ?? collect())->count() === 0)
-            <p class="text-sm text-gray-500">No hay pagos registrados hoy.</p>
-        @else
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm border border-collapse border-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-3 py-2 text-left border">Cliente</th>
-                            <th class="px-3 py-2 text-center border">Venta</th>
-                            <th class="px-3 py-2 text-center border">Fecha venta</th>
-                            <th class="px-3 py-2 text-center border">Cobrado</th>
-                            <th class="px-3 py-2 text-center border">Método</th>
-                            <th class="px-3 py-2 text-right border">Monto</th>
-                            <th class="px-3 py-2 text-left border">Referencia</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($pagosHoyDetalle as $p)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-3 py-2 border">{{ $p['cliente'] }}</td>
-                                <td class="px-3 py-2 text-center border">#{{ $p['venta_id'] }}</td>
-                                <td class="px-3 py-2 text-center border">{{ $p['fecha_venta'] }}</td>
-                                <td class="px-3 py-2 text-center border">{{ $p['fecha_cobro'] }}</td>
-                                <td class="px-3 py-2 text-center capitalize border">{{ $p['metodo'] }}</td>
-                                <td class="px-3 py-2 font-semibold text-right border">
-                                    ${{ number_format($p['monto'], 2) }}
-                                </td>
-                                <td class="px-3 py-2 border">{{ $p['referencia'] ?? '—' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                <div x-show="open" x-cloak class="mt-4">
+                    @if(($pagosHoyDetalle ?? collect())->count() === 0)
+                        <p class="text-sm text-gray-500">No hay pagos registrados hoy.</p>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm border border-collapse border-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left border">Cliente</th>
+                                        <th class="px-3 py-2 text-center border">Venta</th>
+                                        <th class="px-3 py-2 text-center border">Fecha venta</th>
+                                        <th class="px-3 py-2 text-center border">Cobrado</th>
+                                        <th class="px-3 py-2 text-center border">Método</th>
+                                        <th class="px-3 py-2 text-right border">Monto</th>
+                                        <th class="px-3 py-2 text-left border">Referencia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($pagosHoyDetalle as $p)
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-3 py-2 border">{{ $p['cliente'] }}</td>
+                                            <td class="px-3 py-2 text-center border">#{{ $p['venta_id'] }}</td>
+                                            <td class="px-3 py-2 text-center border">{{ $p['fecha_venta'] }}</td>
+                                            <td class="px-3 py-2 text-center border">{{ $p['fecha_cobro'] }}</td>
+                                            <td class="px-3 py-2 text-center capitalize border">{{ $p['metodo'] }}</td>
+                                            <td class="px-3 py-2 font-semibold text-right border">
+                                                ${{ number_format($p['monto'], 2) }}
+                                            </td>
+                                            <td class="px-3 py-2 border">{{ $p['referencia'] ?? '—' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+
+                    <div class="mt-3 text-xs text-gray-500">
+                        *Aquí se ven todos los cobros del día (ventas del día + abonos de días anteriores). Ideal para auditoría.
+                    </div>
+                </div>
             </div>
-        @endif
-
-        <div class="mt-3 text-xs text-gray-500">
-            *Aquí se ven todos los cobros del día (ventas del día + abonos de días anteriores). Ideal para auditoría.
-        </div>
-    </div>
-</div>
-
         </div>
 
         {{-- ====================== INVENTARIOS ====================== --}}
@@ -419,7 +519,6 @@
                     const efectivoEsperado = {{ $efectivoEsperadoHoy }};
                     const efectivo = parseFloat(document.getElementById('total_efectivo').value || '0');
 
-                    // tolerancia
                     const eps = 0.01;
 
                     if (efectivo + eps < efectivoEsperado) {
