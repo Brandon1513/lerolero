@@ -4,14 +4,15 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\VentaController;
+use App\Http\Controllers\Api\PromocionController;
 use App\Http\Controllers\Api\ClienteMovilController;
+use App\Http\Controllers\Api\VisitaClienteController;
+use App\Http\Controllers\Api\CategoriaMovilController;
+use App\Http\Controllers\Api\CierreRutaMovilController;
 use App\Http\Controllers\Api\InventarioMovilController;
 use App\Http\Controllers\Api\RechazoTemporalController;
-use App\Http\Controllers\Api\VentaController;
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\PromocionController;
-use App\Http\Controllers\Api\VisitaClienteController;
-use App\Http\Controllers\Api\CierreRutaMovilController;
 
 /*
 |--------------------------------------------------------------------------
@@ -81,6 +82,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/inventario', [InventarioMovilController::class, 'index'])
         ->middleware('throttle:120,1'); // ✅ 120 consultas por minuto
 
+    // --------------------------------------------
+    // 📦 CATEGORIAS
+    // --------------------------------------------
+    Route::middleware('auth:sanctum')->get('/categorias', [CategoriaMovilController::class, 'index']);
     // --------------------------------------------
     // 🎁 PROMOCIONES (Consultas - Rate limit normal)
     // --------------------------------------------
