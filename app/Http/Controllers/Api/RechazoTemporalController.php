@@ -2,37 +2,169 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use Carbon\Carbon;
+use App\Models\Almacen;
+use App\Models\Inventario; // tu modelo para inventario_almacen
 use Illuminate\Http\Request;
 use App\Models\RechazoTemporal;
+use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
+use App\Models\RechazoTemporalDetalle;
 
 class RechazoTemporalController extends Controller
 {
     public function store(Request $request)
     {
         $request->validate([
-            'cambios' => 'required|array',
-            'cambios.*.producto_id' => 'required|exists:productos,id',
-            'cambios.*.cantidad' => 'required|integer|min:1',
-            'cambios.*.motivo' => 'required|in:caducidad,no vendido,dañado,otro',
-            'cambios.*.lote' => 'nullable|string|max:100',          // <- Nuevo campo
-            'cambios.*.fecha_caducidad' => 'nullable|date',          // <- Nuevo campo
+            'cambios' => 'required|array|min:1',
+
+            // devuelto
+            'cambios.*.producto_id'     => 'required|exists:productos,id',
+            'cambios.*.cantidad'        => 'required|numeric|min:1',
+            'cambios.*.motivo'          => 'required|in:caducidad,no vendido,dañado,otro',
+            'cambios.*.lote'            => 'nullable|string|max:255',
+            'cambios.*.fecha_caducidad' => 'nullable|date',
+
+            // entregado (sustituciones)
+            'cambios.*.sustituciones' => 'required|array|min:1',
+            'cambios.*.sustituciones.*.producto_id'     => 'required|exists:productos,id',
+            'cambios.*.sustituciones.*.cantidad'        => 'required|numeric|min:0.01',
+            'cambios.*.sustituciones.*.lote'            => 'nullable|string|max:255',
+            'cambios.*.sustituciones.*.fecha_caducidad' => 'nullable|date',
         ]);
 
-        foreach ($request->cambios as $cambio) {
-            RechazoTemporal::create([
-                'producto_id' => $cambio['producto_id'],
-                'vendedor_id' => Auth::id(),
-                'cantidad' => $cambio['cantidad'],
-                'motivo' => $cambio['motivo'],
-                'lote' => $cambio['lote'] ?? null,                    // <- Ahora incluye el lote
-                'fecha_caducidad' => $cambio['fecha_caducidad'] ?? null, // <- Ahora incluye la fecha de caducidad
-                'fecha' => Carbon::now()->toDateString(),
-            ]);
-        }
+        $userId = Auth::id();
+
+        // 1) almacén vendedor por user_id
+        $almacenVendedor = Almacen::where('user_id', $userId)->firstOrFail();
+
+        // 2) almacén de rechazo por tipo
+        $almacenRechazo = $this->resolveAlmacenRechazo();
+
+        DB::transaction(function () use ($request, $userId, $almacenVendedor, $almacenRechazo) {
+
+            foreach ($request->cambios as $cambio) {
+
+                $qtyDevuelta = (float) $cambio['cantidad'];
+
+                // ✅ validar suma sustituciones
+                $sumaEntregada = collect($cambio['sustituciones'])
+                    ->sum(fn ($s) => (float) $s['cantidad']);
+
+                if ($sumaEntregada <= 0) {
+                    abort(422, 'Debes capturar al menos una sustitución.');
+                }
+
+                if ($sumaEntregada > $qtyDevuelta + 0.0001) {
+                    abort(422, "La cantidad entregada ($sumaEntregada) no puede exceder la devuelta ($qtyDevuelta).");
+                }
+
+                // 3) crear cabecera: lo devuelto
+                $rechazo = RechazoTemporal::create([
+                    'producto_id'     => $cambio['producto_id'],
+                    'vendedor_id'     => $userId,
+                    'cantidad'        => $qtyDevuelta,
+                    'motivo'          => $cambio['motivo'],
+                    'lote'            => $cambio['lote'] ?? null,
+                    'fecha_caducidad' => $cambio['fecha_caducidad'] ?? null,
+                    'fecha'           => Carbon::now()->toDateString(),
+                    'almacen_id'      => $almacenVendedor->id,
+                    'venta_id'        => null,
+                ]);
+
+                // 4) DEVUELTO: sumar al almacén rechazo
+                $this->incrementarInventario(
+                    $almacenRechazo->id,
+                    (int) $cambio['producto_id'],
+                    $cambio['lote'] ?? null,
+                    $cambio['fecha_caducidad'] ?? null,
+                    $qtyDevuelta
+                );
+
+                // 5) ENTREGADO: validar y descontar del almacén vendedor + guardar detalle
+                foreach ($cambio['sustituciones'] as $s) {
+
+                    $prodEnt = (int) $s['producto_id'];
+                    $qtyEnt  = (float) $s['cantidad'];
+                    $loteEnt = $s['lote'] ?? null;
+                    $cadEnt  = $s['fecha_caducidad'] ?? null;
+
+                    // lock y validar stock (por lote/cad si aplica)
+                    $inv = $this->getInventarioForUpdate($almacenVendedor->id, $prodEnt, $loteEnt, $cadEnt);
+
+                    $disp = $inv ? (float) $inv->cantidad : 0.0;
+                    if ($disp + 0.0001 < $qtyEnt) {
+                        abort(422, "Stock insuficiente producto_id={$prodEnt}. Disponible: {$disp}, requerido: {$qtyEnt}.");
+                    }
+
+                    // guardar detalle
+                    RechazoTemporalDetalle::create([
+                        'rechazo_temporal_id' => $rechazo->id,
+                        'producto_id'         => $prodEnt,
+                        'cantidad'            => $qtyEnt,
+                        'lote'                => $loteEnt,
+                        'fecha_caducidad'     => $cadEnt,
+                        'almacen_id'          => $almacenVendedor->id,
+                    ]);
+
+                    // descontar inventario vendedor
+                    $inv->cantidad = (float) $inv->cantidad - $qtyEnt;
+                    $inv->save();
+                }
+            }
+        });
 
         return response()->json(['message' => 'Cambios registrados correctamente.'], 201);
+    }
+
+    private function resolveAlmacenRechazo(): Almacen
+    {
+        // por tipo
+        $a = Almacen::where('tipo', 'rechazo')->first();
+        if ($a) return $a;
+
+        // por nombre
+        $a = Almacen::where('nombre', 'like', '%rechazo%')
+            ->orWhere('nombre', 'like', '%cambio%')
+            ->first();
+        if ($a) return $a;
+
+        abort(500, 'No está configurado el almacén de rechazo (tipo="rechazo").');
+    }
+
+    private function getInventarioForUpdate(int $almacenId, int $productoId, ?string $lote, ?string $fechaCaducidad)
+    {
+        $q = Inventario::where('almacen_id', $almacenId)
+            ->where('producto_id', $productoId);
+
+        $lote === null ? $q->whereNull('lote') : $q->where('lote', $lote);
+        $fechaCaducidad === null ? $q->whereNull('fecha_caducidad') : $q->where('fecha_caducidad', $fechaCaducidad);
+
+        return $q->lockForUpdate()->first();
+    }
+
+    private function incrementarInventario(int $almacenId, int $productoId, ?string $lote, ?string $fechaCaducidad, float $cantidad): void
+    {
+        $q = Inventario::where('almacen_id', $almacenId)
+            ->where('producto_id', $productoId);
+
+        $lote === null ? $q->whereNull('lote') : $q->where('lote', $lote);
+        $fechaCaducidad === null ? $q->whereNull('fecha_caducidad') : $q->where('fecha_caducidad', $fechaCaducidad);
+
+        $row = $q->lockForUpdate()->first();
+
+        if ($row) {
+            $row->cantidad = (float) $row->cantidad + $cantidad;
+            $row->save();
+        } else {
+            Inventario::create([
+                'almacen_id'      => $almacenId,
+                'producto_id'     => $productoId,
+                'cantidad'        => $cantidad,
+                'lote'            => $lote,
+                'fecha_caducidad' => $fechaCaducidad,
+            ]);
+        }
     }
 }
