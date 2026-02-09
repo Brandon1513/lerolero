@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\VentaController;
+use App\Http\Controllers\Api\PreventaController;
 use App\Http\Controllers\Api\PromocionController;
 use App\Http\Controllers\Api\ClienteMovilController;
 use App\Http\Controllers\Api\VisitaClienteController;
@@ -110,6 +111,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // Preventas (CRÍTICO - Rate limit estricto)
     // --------------------------------------------
     Route::post('/preventas', [\App\Http\Controllers\Api\PreventaController::class, 'store']);
+    // ✅ obtener ticket previo (detalle)
+    Route::get('/preventas/{preventa}', [PreventaController::class, 'show']);
+
+    // (opcional) marcar como impresa/reimpresa
+    Route::patch('/preventas/{preventa}/printed', [PreventaController::class, 'markPrinted']);
+
+    // (opcional) listar preventas del vendedor
+    Route::get('/preventas', [PreventaController::class, 'index']);
 
 
     // --------------------------------------------
