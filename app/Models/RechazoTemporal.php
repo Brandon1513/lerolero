@@ -20,16 +20,13 @@ class RechazoTemporal extends Model
         'venta_id', // 👈 Agrega este campo si es necesario para relacionar con una venta
         'lote', // 👈 Agrega este campo
         'fecha_caducidad', // 👈 Agrega este campo
-        'producto_entregado_id', // 👈 Agrega este campo
-        'lote_entregado', // 👈 Agrega este campo
-        'fecha_caducidad_entregado', // 👈 Agrega este campo
-        'cantidad_entregada', // 👈 Agrega este campo
+        'almacen_id', // 👈 Agrega este campo para relacionar con el almacén de donde se entregó el producto
 
     ];
 
     public function producto()
     {
-        return $this->belongsTo(Producto::class);
+        return $this->belongsTo(\App\Models\Producto::class, 'producto_id');
     }
 
     public function vendedor()
@@ -38,11 +35,11 @@ class RechazoTemporal extends Model
     }
     public function venta()
     {
-        return $this->belongsTo(Venta::class);
+        return $this->belongsTo(Venta::class, 'venta_id');
     }
     public function almacen()
     {
-        return $this->belongsTo(Almacen::class);
+        return $this->belongsTo(Almacen::class, 'almacen_id');
     }
 
     public function detalles()

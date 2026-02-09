@@ -2,22 +2,23 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Log;
 use Carbon\Carbon;
-
 use App\Models\Venta;
+use App\Models\Cliente;
+
+use App\Models\Producto;
+use App\Models\PagoVenta;
+use App\Models\Promocion;
 use App\Models\Inventario;
 use App\Models\DetalleVenta;
-use App\Models\Promocion;
+use Illuminate\Http\Request;
+use App\Models\VisitaCliente;
 use App\Models\VentaPromocion;
 use App\Models\RechazoTemporal;
-use App\Models\Cliente;
-use App\Models\Producto;
+use Illuminate\Support\Facades\DB;
 use App\Models\ProductoNivelPrecio;
-use App\Models\PagoVenta;
-use App\Models\VisitaCliente;
+use App\Http\Controllers\Controller;
 
 class VentaController extends Controller
 {
@@ -373,25 +374,28 @@ class VentaController extends Controller
                         }
                     }
                 }
+                Log::info('rechazos_ids recibidos', ['rechazos_ids' => $request->rechazos_ids]);
+                // 8) Vincular rechazos temporales a la venta (SIN mover inventario aquí)
+                    if ($request->filled('rechazos_ids')) {
+                        foreach ($request->rechazos_ids as $rid) {
 
-                // 8) Procesar rechazos
-                if ($request->filled('rechazos_ids')) {
-                    foreach ($request->rechazos_ids as $rid) {
-                        $rechazo = RechazoTemporal::find($rid);
-                        if (!$rechazo) continue;
+                            $rechazo = RechazoTemporal::where('id', $rid)
+                                ->where('vendedor_id', $vendedor->id)
+                                ->lockForUpdate()
+                                ->first();
 
-                        $rechazo->update(['venta_id' => $venta->id]);
+                            if (!$rechazo) {
+                                abort(422, "Rechazo inválido: {$rid}");
+                            }
 
-                        $inv = Inventario::firstOrCreate([
-                            'producto_id' => $rechazo->producto_id,
-                            'almacen_id'  => 3, // Almacén de rechazos
-                            'lote'        => $rechazo->lote,
-                        ]);
-                        $inv->cantidad = (float)($inv->cantidad ?? 0) + (float)$rechazo->cantidad;
-                        $inv->fecha_caducidad = $rechazo->fecha_caducidad ?? $inv->fecha_caducidad;
-                        $inv->save();
+                            if ($rechazo->venta_id) {
+                                abort(422, "El rechazo {$rid} ya fue usado en la venta {$rechazo->venta_id}");
+                            }
+
+                            $rechazo->update(['venta_id' => $venta->id]);
+                        }
                     }
-                }
+
 
                 // 9) Guardar pagos recibidos
                 foreach ($pagos as $pago) {
