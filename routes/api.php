@@ -85,7 +85,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // --------------------------------------------
     // 📦 CATEGORIAS
     // --------------------------------------------
-    Route::middleware('auth:sanctum')->get('/categorias', [CategoriaMovilController::class, 'index']);
+    Route::get('/categorias', [CategoriaMovilController::class, 'index']);
+
+    Route::post('/rechazos', [RechazoTemporalController::class, 'store']);
     // --------------------------------------------
     // 🎁 PROMOCIONES (Consultas - Rate limit normal)
     // --------------------------------------------
@@ -104,6 +106,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/{venta}/pagos', [VentaController::class, 'abonar']);
         });
     });
+    // --------------------------------------------
+    // Preventas (CRÍTICO - Rate limit estricto)
+    // --------------------------------------------
+    Route::post('/preventas', [\App\Http\Controllers\Api\PreventaController::class, 'store']);
+
 
     // --------------------------------------------
     // 🔄 RECHAZOS TEMPORALES (Rate limit moderado)

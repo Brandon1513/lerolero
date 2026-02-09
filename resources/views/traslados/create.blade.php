@@ -51,7 +51,7 @@
                 </div>
             </div>
 
-            <<x-primary-button type="submit" class="mt-6">
+            <x-primary-button type="submit" class="mt-6">
                 Registrar Traslado
             </x-primary-button>
         </form>

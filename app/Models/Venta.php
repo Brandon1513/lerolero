@@ -23,6 +23,7 @@ class Venta extends Model
         'fecha_vencimiento',
         'nota_pago',
         'client_tx_id',
+        'preventa_id', // 👈 Agrega este campo para relacionar con preventas
     ];
     
     protected $casts = [

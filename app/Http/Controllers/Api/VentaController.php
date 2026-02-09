@@ -19,6 +19,7 @@ use App\Models\RechazoTemporal;
 use Illuminate\Support\Facades\DB;
 use App\Models\ProductoNivelPrecio;
 use App\Http\Controllers\Controller;
+use App\Models\Preventa;
 
 class VentaController extends Controller
 {
@@ -75,6 +76,9 @@ class VentaController extends Controller
             // ✅ NOTA: Las coordenadas GPS se guardan en visitas_clientes, no en ventas
             'latitud'               => 'nullable|numeric|between:-90,90',
             'longitud'              => 'nullable|numeric|between:-180,180',
+
+            'preventa_id' => 'nullable|integer|exists:preventas,id',
+
         ]);
 
         $vendedor = $request->user();
@@ -172,6 +176,28 @@ class VentaController extends Controller
         try {
             $result = DB::transaction(function () use ($request, $vendedor, $almacenId, $nivelId, $clientTxId, $cliente) {
 
+                $preventa = null;
+
+                    if ($request->filled('preventa_id')) {
+                        $preventa = Preventa::where('id', $request->preventa_id)
+                            ->where('vendedor_id', $vendedor->id)
+                            ->where('cliente_id', $cliente->id)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if (!$preventa) {
+                            abort(422, 'Preventa inválida o no pertenece a este vendedor/cliente.');
+                        }
+
+                        if (!empty($preventa->venta_id)) {
+                            abort(422, "La preventa ya fue convertida en venta (#{$preventa->venta_id}).");
+                        }
+                            if ((int)$preventa->almacen_id !== (int)$almacenId) {
+                            abort(422, 'La preventa pertenece a otro almacén. Refresca la preventa o genera una nueva.');
+                        }
+
+                    }
+
                 $total = 0.0;
 
                 // 1) Promos: validar stock + acumular total
@@ -253,7 +279,18 @@ class VentaController extends Controller
                     'fecha_vencimiento'  => $fv,
                     'observaciones'      => $request->observaciones,
                     'client_tx_id'       => $clientTxId,
+                    'preventa_id' => $preventa?->id,
+
+
                 ]);
+                if ($preventa) {
+                        $preventa->update([
+                            'venta_id' => $venta->id,
+                            'status'   => 'convertida',
+                            'converted_at' => now(),
+                        ]);
+                    }
+
 
                 // ✅ MEJORA 5: Log de venta creada
                 \Log::info('Venta creada en base de datos', [
