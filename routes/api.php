@@ -134,6 +134,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // ✅ Cierre de ruta: Solo 10 por hora (es una operación crítica)
     Route::post('/solicitar-cierre', [CierreRutaMovilController::class, 'solicitar'])
         ->middleware('throttle:10,60');
+
+
+
+    // Estado de venta 
+
+    Route::get('/estado-venta', [\App\Http\Controllers\Api\EstadoVentaController::class, 'estado']);
     
     // 📊 VISITAS A CLIENTES
     Route::prefix('visitas')->group(function () {

@@ -14,6 +14,7 @@ use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\NivelPrecioController;
 use App\Http\Controllers\UnidadMedidaController;
+use App\Http\Controllers\Admin\CierreRutaController;
 use App\Http\Controllers\DashboardController; //  NUEVO
 
 Route::get('/', function () {
@@ -108,6 +109,9 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::prefix('admin')->group(function () {
         Route::resource('cierres', App\Http\Controllers\Admin\CierreRutaController::class)->only(['index', 'show', 'update']);
     });
+    Route::post('/cierres/{cierre}/liberar-ventas', [CierreRutaController::class, 'liberarVentas'])
+  ->name('cierres.liberarVentas');
+
     
     //  ADMIN DASHBOARD (legacy - puedes removerlo si usas el nuevo)
     Route::get('/admin', [AdminController::class, 'index'])->name('admin.dashboard');

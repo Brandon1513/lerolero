@@ -211,52 +211,111 @@ class PreventaController extends Controller
             ], 201);
         });
     }
-    public function show(Request $request, Preventa $preventa)
+     public function show(Preventa $preventa)
 {
-    $user = $request->user();
+    $user = request()->user();
 
-    // ✅ seguridad: solo el vendedor dueño (o admin/rh si quieres)
+    // Solo el vendedor dueño (ajústalo si RH/Admin también debe verlo)
     if ((int)$preventa->vendedor_id !== (int)$user->id) {
-        return response()->json(['message' => 'No tienes permiso para ver esta preventa.'], 403);
+        return response()->json(['message' => 'No autorizado.'], 403);
     }
 
-    // Cargar relaciones útiles
-    $preventa->load([
-        'cliente:id,nombre,asignado_a,nivel_precio_id',
-        'vendedor:id,name',
-        'almacen:id,nombre,tipo',
-        'venta:id,cliente_id,vendedor_id,total,created_at',
-    ]);
+    $payload = is_array($preventa->payload) ? $preventa->payload : (json_decode($preventa->payload ?? '[]', true) ?: []);
 
-    // Payload ya viene casteado a array
-    $payload = $preventa->payload ?? [];
+    $cliente = Cliente::select('id','nombre')->find($preventa->cliente_id);
+
+    // ====== Productos normales ======
+    $productosReq = $payload['productos'] ?? [];
+    $productoIds  = collect($productosReq)->pluck('producto_id')->filter()->unique()->values()->all();
+
+    $productosDB = Producto::with('categoria:id,nombre')
+        ->whereIn('id', $productoIds)
+        ->get()
+        ->keyBy('id');
+
+    $productosTicket = collect($productosReq)->map(function ($it) use ($productosDB) {
+        $pid = (int)($it['producto_id'] ?? 0);
+        $pdb = $productosDB->get($pid);
+
+        $precioUnit = (float)($it['precio_unitario'] ?? ($pdb?->precio ?? 0));
+
+        return [
+            'producto_id' => $pid,
+            'cantidad' => (int)($it['cantidad'] ?? 0),
+            'lote' => $it['lote'] ?? null,
+            'fecha_caducidad' => $it['fecha_caducidad'] ?? null,
+            'producto' => [
+                'id' => $pid,
+                'nombre' => $pdb?->nombre ?? "Producto #{$pid}",
+                'precio' => $precioUnit, // 👈 importante para que calcule igual que ticket.tsx
+                'categoria' => $pdb?->categoria ? [
+                    'id' => $pdb->categoria->id,
+                    'nombre' => $pdb->categoria->nombre,
+                ] : null,
+            ],
+        ];
+    })->values()->all();
+
+    // ====== Promociones ======
+    $promosReq = $payload['promociones'] ?? [];
+    $promoIds  = collect($promosReq)->pluck('promocion_id')->filter()->unique()->values()->all();
+
+    $promosDB = Promocion::with(['productos' => function($q){
+            $q->select('productos.id','productos.nombre','productos.precio');
+        }])
+        ->whereIn('id', $promoIds)
+        ->get()
+        ->keyBy('id');
+
+    $promosTicket = collect($promosReq)->map(function ($it) use ($promosDB) {
+        $id = (int)($it['promocion_id'] ?? 0);
+        $promo = $promosDB->get($id);
+
+        return [
+            'promocion_id' => $id,
+            'cantidad' => (int)($it['cantidad'] ?? 0),
+            'precio_promocion' => (float)($promo?->precio ?? 0),
+            'nombre_promocion' => $promo?->nombre ?? "Promoción #{$id}",
+            'productos' => $promo
+                ? $promo->productos->map(function($p){
+                    return [
+                        'id' => $p->id,
+                        'nombre' => $p->nombre,
+                        'precio' => (float)$p->precio,
+                        'pivot' => [
+                            'cantidad' => (int)($p->pivot->cantidad ?? 1),
+                        ],
+                    ];
+                })->values()->all()
+                : [],
+        ];
+    })->values()->all();
+
+    // Unificamos en el mismo shape que tu ticket usa (productos + promos en un array)
+    $itemsTicket = array_merge($productosTicket, $promosTicket);
 
     return response()->json([
-        'preventa' => [
-            'id' => $preventa->id,
-            'folio' => $preventa->folio,
-            'status' => $preventa->status,
-            'printed_at' => optional($preventa->printed_at)->toDateTimeString(),
-            'converted_at' => optional($preventa->converted_at)->toDateTimeString(),
-            'created_at' => optional($preventa->created_at)->toDateTimeString(),
+        'id' => $preventa->id,
+        'folio' => $preventa->folio,
+        'created_at' => optional($preventa->created_at)->toISOString(),
+        'printed_at' => optional($preventa->printed_at)->toISOString(),
+        'cliente' => $cliente ? ['id' => $cliente->id, 'nombre' => $cliente->nombre] : null,
 
-            'total' => (float)$preventa->total,
-            'total_pagado' => (float)$preventa->total_pagado,
-            'saldo_pendiente' => (float)$preventa->saldo_pendiente,
-            'es_credito' => (bool)$preventa->es_credito,
-            'fecha_vencimiento' => optional($preventa->fecha_vencimiento)->format('Y-m-d'),
+        'observaciones' => $payload['observaciones'] ?? '',
+        'pagos' => $payload['pagos'] ?? [],
+        'es_credito' => (bool)($payload['es_credito'] ?? $preventa->es_credito),
+        'fecha_vencimiento' => optional($preventa->fecha_vencimiento)->format('Y-m-d'),
+        'nota_pago' => $payload['nota_pago'] ?? '',
 
-            'cliente' => $preventa->cliente,
-            'vendedor' => $preventa->vendedor,
-            'almacen' => $preventa->almacen,
+        // 👇 ESTO es lo que va a usar el TicketPrevio
+        'productos_ticket' => $itemsTicket,
 
-            // venta final si ya fue convertida
-            'venta' => $preventa->venta,
-
-            // ✅ lo que el front necesita para pintar el ticket
-            'payload' => $payload,
-        ]
-    ], 200);
+        // totales guardados
+        'total' => (float)$preventa->total,
+        'total_pagado' => (float)$preventa->total_pagado,
+        'saldo_pendiente' => (float)$preventa->saldo_pendiente,
+        'status' => $preventa->status,
+    ]);
 }
 
 public function markPrinted(Request $request, Preventa $preventa)

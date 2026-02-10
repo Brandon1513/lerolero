@@ -18,6 +18,11 @@ class User extends Authenticatable
         'email',
         'password',
         'activo',
+        'ventas_bloqueadas',
+        'ventas_bloqueadas_desde', // fecha desde la cual las ventas están bloqueadas
+        'ventas_bloqueadas_motivo', // motivo del bloqueo de ventas
+        'ventas_bloqueadas_cierre_id', // cierre de ruta asociado al bloqueo de ventas
+
     ];
 
     protected $hidden = [

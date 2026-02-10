@@ -232,11 +232,23 @@
                                         <td class="px-4 py-2 text-center border">
                                             <div class="flex flex-wrap justify-center gap-2">
                                                 <a href="{{ route('cierres.show', $cierre) }}"
-                                                   class="px-3 py-1 text-white bg-blue-500 rounded-md hover:bg-blue-700">
+                                                class="px-3 py-1 text-white bg-blue-500 rounded-md hover:bg-blue-700">
                                                     Ver Detalle
                                                 </a>
+
+                                                @if(optional($cierre->vendedor)->ventas_bloqueadas)
+                                                    <form method="POST" action="{{ route('cierres.liberarVentas', $cierre) }}"
+                                                        onsubmit="return confirm('¿Liberar ventas para {{ $cierre->vendedor->name }}?');">
+                                                        @csrf
+                                                        <button type="submit"
+                                                                class="px-3 py-1 text-white rounded-md bg-emerald-600 hover:bg-emerald-700">
+                                                            Liberar ventas
+                                                        </button>
+                                                    </form>
+                                                @endif
                                             </div>
                                         </td>
+
                                     </tr>
                                 @endforeach
                             </tbody>

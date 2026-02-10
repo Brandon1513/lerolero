@@ -6,7 +6,6 @@ use Log;
 use Carbon\Carbon;
 use App\Models\Venta;
 use App\Models\Cliente;
-
 use App\Models\Producto;
 use App\Models\PagoVenta;
 use App\Models\Promocion;
@@ -73,19 +72,30 @@ class VentaController extends Controller
             // Idempotencia
             'client_tx_id'          => 'nullable|string|max:64',
 
-            // ✅ NOTA: Las coordenadas GPS se guardan en visitas_clientes, no en ventas
+            // GPS (visitas)
             'latitud'               => 'nullable|numeric|between:-90,90',
             'longitud'              => 'nullable|numeric|between:-180,180',
 
             'preventa_id' => 'nullable|integer|exists:preventas,id',
-
         ]);
 
         $vendedor = $request->user();
-        
+
+        // =========================================================
+        // ✅ NUEVO: BLOQUEO DE VENTAS POR CIERRE DE RUTA
+        // =========================================================
+        if (!empty($vendedor->ventas_bloqueadas)) {
+            return response()->json([
+                'message'  => 'Ventas bloqueadas. Solicita liberación al administrador para continuar.',
+                'motivo'   => $vendedor->ventas_bloqueadas_motivo,
+                'desde'    => optional($vendedor->ventas_bloqueadas_desde)->toDateTimeString(),
+                'cierre_id'=> $vendedor->ventas_bloqueadas_cierre_id,
+            ], 423); // Locked
+        }
+
         // ✅ MEJORA 1: Validar que el vendedor tenga almacén asignado
         $almacenId = optional($vendedor->almacen)->id ?? $vendedor->almacen_id;
-        
+
         if (!$almacenId) {
             return response()->json([
                 'message' => 'No tienes un almacén asignado. Contacta al administrador.'
@@ -93,7 +103,7 @@ class VentaController extends Controller
         }
 
         $cliente = Cliente::findOrFail($request->cliente_id);
-        
+
         // ✅ MEJORA 2: Validar que el cliente esté asignado al vendedor
         if ($cliente->asignado_a !== $vendedor->id) {
             \Log::warning('Intento de venta a cliente no asignado', [
@@ -101,15 +111,15 @@ class VentaController extends Controller
                 'cliente_id' => $cliente->id,
                 'cliente_asignado_a' => $cliente->asignado_a,
             ]);
-            
+
             return response()->json([
                 'message' => 'No tienes permiso para vender a este cliente.'
             ], 403);
         }
-        
+
         $nivelId = $cliente->nivel_precio_id;
 
-        /** ---------- Idempotencia: si ya existe una venta con ese client_tx_id, regresa la misma ---------- */
+        /** ---------- Idempotencia ---------- */
         $clientTxId = $request->input('client_tx_id');
         if ($clientTxId) {
             $prev = Venta::where('client_tx_id', $clientTxId)->first();
@@ -118,7 +128,7 @@ class VentaController extends Controller
                     'client_tx_id' => $clientTxId,
                     'venta_id' => $prev->id,
                 ]);
-                
+
                 return response()->json([
                     'message'         => 'Venta ya registrada (reintento).',
                     'venta_id'        => $prev->id,
@@ -160,7 +170,6 @@ class VentaController extends Controller
             $this->creditWarning = "El cliente tiene saldo pendiente: $" . number_format($saldoPendienteCliente, 2) . ".";
         }
 
-        // ✅ MEJORA 3: Logs detallados al inicio
         \Log::info('Iniciando creación de venta', [
             'vendedor_id' => $vendedor->id,
             'vendedor_nombre' => $vendedor->name,
@@ -178,51 +187,39 @@ class VentaController extends Controller
 
                 $preventa = null;
 
-                    if ($request->filled('preventa_id')) {
-                        $preventa = Preventa::where('id', $request->preventa_id)
-                            ->where('vendedor_id', $vendedor->id)
-                            ->where('cliente_id', $cliente->id)
-                            ->lockForUpdate()
-                            ->first();
+                if ($request->filled('preventa_id')) {
+                    $preventa = Preventa::where('id', $request->preventa_id)
+                        ->where('vendedor_id', $vendedor->id)
+                        ->where('cliente_id', $cliente->id)
+                        ->lockForUpdate()
+                        ->first();
 
-                        if (!$preventa) {
-                            abort(422, 'Preventa inválida o no pertenece a este vendedor/cliente.');
-                        }
-
-                        if (!empty($preventa->venta_id)) {
-                            abort(422, "La preventa ya fue convertida en venta (#{$preventa->venta_id}).");
-                        }
-                            if ((int)$preventa->almacen_id !== (int)$almacenId) {
-                            abort(422, 'La preventa pertenece a otro almacén. Refresca la preventa o genera una nueva.');
-                        }
-
-                    }
+                    if (!$preventa) abort(422, 'Preventa inválida o no pertenece a este vendedor/cliente.');
+                    if (!empty($preventa->venta_id)) abort(422, "La preventa ya fue convertida en venta (#{$preventa->venta_id}).");
+                    if ((int)$preventa->almacen_id !== (int)$almacenId) abort(422, 'La preventa pertenece a otro almacén. Refresca la preventa o genera una nueva.');
+                }
 
                 $total = 0.0;
 
-                // 1) Promos: validar stock + acumular total
+                // 1) Promos
                 foreach ($request->promociones ?? [] as $promoData) {
                     $promo = Promocion::with('productos')->find($promoData['promocion_id']);
                     $veces = (int) $promoData['cantidad'];
 
-                    if (!$promo || !$promo->activo) {
-                        abort(422, "Promoción inválida o inactiva.");
-                    }
+                    if (!$promo || !$promo->activo) abort(422, "Promoción inválida o inactiva.");
 
                     foreach ($promo->productos as $producto) {
                         $necesito = (int)($producto->pivot->cantidad ?? 1) * $veces;
                         $stock = Inventario::where('almacen_id', $almacenId)
                             ->where('producto_id', $producto->id)
                             ->sum('cantidad');
-                        if ($stock < $necesito) {
-                            abort(422, "Stock insuficiente para '{$producto->nombre}' en la promoción.");
-                        }
+                        if ($stock < $necesito) abort(422, "Stock insuficiente para '{$producto->nombre}' en la promoción.");
                     }
 
                     $total += ((float) $promo->precio) * $veces;
                 }
 
-                // 2) Productos sueltos: validar stock + total con precio por nivel
+                // 2) Productos sueltos
                 foreach ($request->productos ?? [] as $item) {
                     $stockTotal = Inventario::where('almacen_id', $almacenId)
                         ->where('producto_id', $item['producto_id'])
@@ -237,19 +234,16 @@ class VentaController extends Controller
                     $total += ((int)$item['cantidad']) * $precioUnit;
                 }
 
-                // ✅ MEJORA 4: Log del total calculado
                 \Log::info('Total de venta calculado', [
                     'total' => $total,
                     'nivel_precio_id' => $nivelId,
                 ]);
 
                 // 3) Validar pagos vs total y crédito
-                $pagos       = collect($request->pagos ?? [])->filter(fn($p) => ($p['monto'] ?? 0) > 0);
-                $sumaPagos   = (float) $pagos->sum('monto');
-                $esCredito   = (bool) $request->boolean('es_credito');
-                $fv          = $request->filled('fecha_vencimiento')
-                                ? Carbon::parse($request->fecha_vencimiento)
-                                : null;
+                $pagos     = collect($request->pagos ?? [])->filter(fn($p) => ($p['monto'] ?? 0) > 0);
+                $sumaPagos = (float) $pagos->sum('monto');
+                $esCredito = (bool) $request->boolean('es_credito');
+                $fv        = $request->filled('fecha_vencimiento') ? Carbon::parse($request->fecha_vencimiento) : null;
 
                 $eps = 0.5;
                 if (!$esCredito) {
@@ -279,38 +273,35 @@ class VentaController extends Controller
                     'fecha_vencimiento'  => $fv,
                     'observaciones'      => $request->observaciones,
                     'client_tx_id'       => $clientTxId,
-                    'preventa_id' => $preventa?->id,
-
-
+                    'preventa_id'        => $preventa?->id,
                 ]);
+
                 if ($preventa) {
-                        $preventa->update([
-                            'venta_id' => $venta->id,
-                            'status'   => 'convertida',
-                            'converted_at' => now(),
-                        ]);
-                    }
+                    $preventa->update([
+                        'venta_id'     => $venta->id,
+                        'status'       => 'convertida',
+                        'converted_at' => now(),
+                    ]);
+                }
 
-
-                // ✅ MEJORA 5: Log de venta creada
                 \Log::info('Venta creada en base de datos', [
                     'venta_id' => $venta->id,
                     'total' => $venta->total,
                     'estado' => $venta->estado,
                 ]);
 
-                // 5) Guardar promociones usadas
+                // 5) Guardar promociones
                 foreach ($request->promociones ?? [] as $promoData) {
                     $promo = Promocion::find($promoData['promocion_id']);
                     VentaPromocion::create([
-                        'venta_id'        => $venta->id,
-                        'promocion_id'    => $promo->id,
-                        'cantidad'        => (int) $promoData['cantidad'],
-                        'precio_promocion'=> (float) $promo->precio,
+                        'venta_id'         => $venta->id,
+                        'promocion_id'     => $promo->id,
+                        'cantidad'         => (int) $promoData['cantidad'],
+                        'precio_promocion' => (float) $promo->precio,
                     ]);
                 }
 
-                // 6) Descontar productos sueltos del inventario (FIFO)
+                // 6) Descontar productos sueltos FIFO
                 foreach ($request->productos ?? [] as $item) {
                     $pid = (int) $item['producto_id'];
                     $qty = (int) $item['cantidad'];
@@ -328,8 +319,7 @@ class VentaController extends Controller
 
                         $needThisLot = min($remaining, (int) $inv->cantidad);
                         $inv->cantidad -= $needThisLot;
-                        
-                        // ✅ MEJORA 6: Validar stock negativo
+
                         if ($inv->cantidad < 0) {
                             \Log::error('Stock quedó negativo', [
                                 'inventario_id' => $inv->id,
@@ -337,10 +327,9 @@ class VentaController extends Controller
                                 'cantidad_final' => $inv->cantidad,
                                 'venta_id' => $venta->id,
                             ]);
-                            
                             abort(500, 'Error interno: Stock quedó negativo. Contacta al administrador.');
                         }
-                        
+
                         $inv->save();
 
                         DetalleVenta::create([
@@ -357,12 +346,10 @@ class VentaController extends Controller
                         $remaining -= $needThisLot;
                     }
 
-                    if ($remaining > 0) {
-                        abort(422, "No fue posible descontar toda la cantidad del producto ID $pid.");
-                    }
+                    if ($remaining > 0) abort(422, "No fue posible descontar toda la cantidad del producto ID $pid.");
                 }
 
-                // 7) Descontar productos de promociones
+                // 7) Descontar promociones
                 foreach ($request->promociones ?? [] as $promoData) {
                     $promo = Promocion::with('productos')->find($promoData['promocion_id']);
                     $veces = (int) $promoData['cantidad'];
@@ -382,8 +369,7 @@ class VentaController extends Controller
 
                             $needThisLot = min($remaining, (int) $inv->cantidad);
                             $inv->cantidad -= $needThisLot;
-                            
-                            // ✅ Validar stock negativo en promociones también
+
                             if ($inv->cantidad < 0) {
                                 \Log::error('Stock quedó negativo en promoción', [
                                     'inventario_id' => $inv->id,
@@ -392,15 +378,16 @@ class VentaController extends Controller
                                 ]);
                                 abort(500, 'Error interno: Stock quedó negativo en promoción.');
                             }
-                            
+
                             $inv->save();
 
+                            $div = max(1, count($promo->productos));
                             DetalleVenta::create([
                                 'venta_id'        => $venta->id,
                                 'producto_id'     => $producto->id,
                                 'cantidad'        => $needThisLot,
-                                'precio_unitario' => (float) $promo->precio / count($promo->productos),
-                                'subtotal'        => ($needThisLot * (float) $promo->precio) / count($promo->productos),
+                                'precio_unitario' => (float) $promo->precio / $div,
+                                'subtotal'        => ($needThisLot * (float) $promo->precio) / $div,
                                 'almacen_id'      => $almacenId,
                                 'lote'            => $inv->lote,
                                 'fecha_caducidad' => $inv->fecha_caducidad,
@@ -411,30 +398,25 @@ class VentaController extends Controller
                         }
                     }
                 }
+
                 Log::info('rechazos_ids recibidos', ['rechazos_ids' => $request->rechazos_ids]);
-                // 8) Vincular rechazos temporales a la venta (SIN mover inventario aquí)
-                    if ($request->filled('rechazos_ids')) {
-                        foreach ($request->rechazos_ids as $rid) {
 
-                            $rechazo = RechazoTemporal::where('id', $rid)
-                                ->where('vendedor_id', $vendedor->id)
-                                ->lockForUpdate()
-                                ->first();
+                // 8) Vincular rechazos temporales a venta
+                if ($request->filled('rechazos_ids')) {
+                    foreach ($request->rechazos_ids as $rid) {
+                        $rechazo = RechazoTemporal::where('id', $rid)
+                            ->where('vendedor_id', $vendedor->id)
+                            ->lockForUpdate()
+                            ->first();
 
-                            if (!$rechazo) {
-                                abort(422, "Rechazo inválido: {$rid}");
-                            }
+                        if (!$rechazo) abort(422, "Rechazo inválido: {$rid}");
+                        if ($rechazo->venta_id) abort(422, "El rechazo {$rid} ya fue usado en la venta {$rechazo->venta_id}");
 
-                            if ($rechazo->venta_id) {
-                                abort(422, "El rechazo {$rid} ya fue usado en la venta {$rechazo->venta_id}");
-                            }
-
-                            $rechazo->update(['venta_id' => $venta->id]);
-                        }
+                        $rechazo->update(['venta_id' => $venta->id]);
                     }
+                }
 
-
-                // 9) Guardar pagos recibidos
+                // 9) Guardar pagos
                 foreach ($pagos as $pago) {
                     PagoVenta::create([
                         'venta_id'    => $venta->id,
@@ -442,16 +424,11 @@ class VentaController extends Controller
                         'monto'       => (float) $pago['monto'],
                         'referencia'  => $pago['referencia'] ?? null,
                         'cobrador_id' => $vendedor->id,
-                        
                     ]);
                 }
-                
-                // 10) Vincular con visita automáticamente
-                $this->vincularConVisita(
-                    $venta, 
-                    $request->input('latitud'), 
-                    $request->input('longitud')
-                );
+
+                // 10) Vincular con visita
+                $this->vincularConVisita($venta, $request->input('latitud'), $request->input('longitud'));
 
                 return [
                     'venta_id'        => $venta->id,
@@ -462,7 +439,6 @@ class VentaController extends Controller
                 ];
             });
 
-            // ✅ MEJORA 7: Log de éxito
             \Log::info('Venta registrada exitosamente', [
                 'venta_id' => $result['venta_id'],
                 'total' => $result['total'],
@@ -531,7 +507,7 @@ class VentaController extends Controller
                     'latitud' => $latitud ?? $visita->latitud,
                     'longitud' => $longitud ?? $visita->longitud,
                 ]);
-                
+
                 \Log::info("Visita #{$visita->id} vinculada con venta #{$venta->id}");
             } else {
                 $nuevaVisita = VisitaCliente::create([
@@ -547,7 +523,7 @@ class VentaController extends Controller
                     'longitud' => $longitud,
                     'estado' => 'visitado',
                 ]);
-                
+
                 \Log::info("Visita #{$nuevaVisita->id} creada automáticamente para venta #{$venta->id}");
             }
         } catch (\Exception $e) {
@@ -573,20 +549,18 @@ class VentaController extends Controller
             ], 422);
         }
 
-        // ✅ MEJORA 8: Validar que el abono no sea mayor al saldo
         $montoAbono = (float) $request->monto;
         $saldoActual = (float) $venta->saldo_pendiente;
 
-        if ($montoAbono > $saldoActual + 0.01) { // Tolerancia de 1 centavo
+        if ($montoAbono > $saldoActual + 0.01) {
             return response()->json([
-                'message' => 'El monto del abono ($' . number_format($montoAbono, 2) . 
+                'message' => 'El monto del abono ($' . number_format($montoAbono, 2) .
                              ') no puede ser mayor al saldo pendiente ($' . number_format($saldoActual, 2) . ').',
             ], 422);
         }
 
         $vendedor = $request->user();
 
-        // ✅ MEJORA 9: Log de abono
         \Log::info('Registrando abono a venta', [
             'venta_id' => $venta->id,
             'monto' => $montoAbono,

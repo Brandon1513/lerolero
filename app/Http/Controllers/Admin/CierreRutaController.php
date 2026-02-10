@@ -411,4 +411,21 @@ private function buildResumenIndex(CierreRuta $cierre): array
             'toast'   => $toast,
         ]);
 }
+public function liberarVentas(CierreRuta $cierre)
+{
+    // Solo admins deberían poder (ideal: middleware/authorize)
+    $vendedor = User::findOrFail($cierre->vendedor_id);
+
+    $vendedor->update([
+        'ventas_bloqueadas' => false,
+        'ventas_bloqueadas_desde' => null,
+        'ventas_bloqueadas_motivo' => null,
+        'ventas_bloqueadas_cierre_id' => null,
+    ]);
+
+    return redirect()
+        ->route('cierres.index')
+        ->with('success', "Vendedor {$vendedor->name} liberado. Ya puede realizar ventas.");
+}
+
 }
