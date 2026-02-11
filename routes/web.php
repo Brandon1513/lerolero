@@ -110,7 +110,7 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
         Route::resource('cierres', App\Http\Controllers\Admin\CierreRutaController::class)->only(['index', 'show', 'update']);
     });
     Route::post('/cierres/{cierre}/liberar-ventas', [CierreRutaController::class, 'liberarVentas'])
-  ->name('cierres.liberarVentas');
+  ->name('cierres.liberar');
 
     
     //  ADMIN DASHBOARD (legacy - puedes removerlo si usas el nuevo)

@@ -178,6 +178,40 @@ Route::middleware('auth:sanctum')->group(function () {
 
         return $q->get(['id','nombre','telefono','latitud','longitud','nivel_precio_id']);
     })->middleware('throttle:30,1'); // ✅ Rate limit bajo para debug
+
+    // Debug temporal
+Route::get('/debug/visitas', [ClienteMovilController::class, 'debugVisitas']);
+Route::get('/debug/clientes-visitados', function (Request $request) {
+    $user = $request->user();
+    $hoy = now()->toDateString();
+    $dia = ucfirst(now()->locale('es')->isoFormat('dddd'));
+
+    $clientes = \App\Models\Cliente::where('asignado_a', $user->id)
+        ->where('activo', true)
+        ->whereJsonContains('dias_visita', $dia)
+        ->get(['id', 'nombre']);
+
+    $visitadosHoy = \App\Models\VisitaCliente::where('user_id', $user->id)
+        ->whereDate('fecha_visita', $hoy)
+        ->pluck('cliente_id')
+        ->toArray();
+
+    return response()->json([
+        'fecha' => $hoy,
+        'dia' => $dia,
+        'total_clientes' => $clientes->count(),
+        'total_visitados' => count($visitadosHoy),
+        'clientes' => $clientes->map(function($c) use ($visitadosHoy) {
+            return [
+                'id' => $c->id,
+                'nombre' => $c->nombre,
+                'visitado' => in_array($c->id, $visitadosHoy),
+            ];
+        }),
+        'ids_visitados' => $visitadosHoy,
+    ]);
+});
+
 });
 
 /*
