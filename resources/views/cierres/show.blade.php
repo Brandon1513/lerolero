@@ -14,7 +14,7 @@
 
     <div class="py-12 mx-auto space-y-8 max-w-7xl sm:px-6 lg:px-8">
 
-        {{-- ====================== RESUMEN GENERAL ====================== --}}
+        {{-- RESUMEN GENERAL (MANTENER IGUAL) --}}
         <div class="p-6 space-y-3 bg-white rounded-lg shadow">
             <h3 class="text-lg font-bold text-gray-700">Resumen de la Ruta</h3>
 
@@ -49,106 +49,103 @@
                 </div>
             </div>
 
-            {{-- ✅ Mini-card PREMIUM: resumen 2 segundos + chips por método --}}
-@php
-    $cobroDia      = (float) ($resumen['cobros_hoy']['ventas_dia'] ?? 0);
-    $cobroAnterior = (float) ($resumen['cobros_hoy']['ventas_anteriores'] ?? 0);
+            {{-- Mini-card resumen (MANTENER IGUAL) --}}
+            @php
+                $cobroDia      = (float) ($resumen['cobros_hoy']['ventas_dia'] ?? 0);
+                $cobroAnterior = (float) ($resumen['cobros_hoy']['ventas_anteriores'] ?? 0);
 
-    $md = $resumen['cobros_hoy']['metodos_ventas_dia'] ?? [];
-    $ma = $resumen['cobros_hoy']['metodos_ventas_anteriores'] ?? [];
+                $md = $resumen['cobros_hoy']['metodos_ventas_dia'] ?? [];
+                $ma = $resumen['cobros_hoy']['metodos_ventas_anteriores'] ?? [];
 
-    $diaEfe = (float) ($md['efectivo'] ?? 0);
-    $diaTra = (float) ($md['transferencia'] ?? 0);
-    $diaTar = (float) ($md['tarjeta'] ?? 0);
+                $diaEfe = (float) ($md['efectivo'] ?? 0);
+                $diaTra = (float) ($md['transferencia'] ?? 0);
+                $diaTar = (float) ($md['tarjeta'] ?? 0);
 
-    $antEfe = (float) ($ma['efectivo'] ?? 0);
-    $antTra = (float) ($ma['transferencia'] ?? 0);
-    $antTar = (float) ($ma['tarjeta'] ?? 0);
-@endphp
+                $antEfe = (float) ($ma['efectivo'] ?? 0);
+                $antTra = (float) ($ma['transferencia'] ?? 0);
+                $antTar = (float) ($ma['tarjeta'] ?? 0);
+            @endphp
 
-<div class="mt-2">
-    @if(($cobroDia + $cobroAnterior) > 0.01)
-        <div class="flex items-start gap-3 p-4 border rounded-lg
-            {{ $cobroAnterior > 0.01 ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-gray-50 text-gray-700 border-gray-200' }}">
-            <div class="mt-0.5">
-                {{ $cobroAnterior > 0.01 ? '💡' : '✅' }}
-            </div>
-
-            <div class="w-full text-sm">
-                <div class="font-semibold">
-                    @if($cobroAnterior > 0.01)
-                        Hoy se cobraron ${{ number_format($cobroAnterior, 2) }} de saldos anteriores.
-                    @else
-                        Hoy no se cobró nada de saldos anteriores.
-                    @endif
-                </div>
-
-                <div class="grid grid-cols-1 gap-3 mt-2 sm:grid-cols-2">
-                    {{-- Ventas del día --}}
-                    <div class="p-3 bg-white border rounded">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-600">Cobrado hoy de ventas del día:</span>
-                            <span class="font-semibold text-gray-900">${{ number_format($cobroDia, 2) }}</span>
+            <div class="mt-2">
+                @if(($cobroDia + $cobroAnterior) > 0.01)
+                    <div class="flex items-start gap-3 p-4 border rounded-lg
+                        {{ $cobroAnterior > 0.01 ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-gray-50 text-gray-700 border-gray-200' }}">
+                        <div class="mt-0.5">
+                            {{ $cobroAnterior > 0.01 ? '💡' : '✅' }}
                         </div>
 
-                        {{-- Chips por método (ventas del día) --}}
-                        <div class="flex flex-wrap gap-2 mt-2">
-                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
-                                💵 Efectivo: <span class="font-semibold">${{ number_format($diaEfe, 2) }}</span>
-                            </span>
-                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
-                                🏦 Transfer: <span class="font-semibold">${{ number_format($diaTra, 2) }}</span>
-                            </span>
-                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
-                                💳 Tarjeta: <span class="font-semibold">${{ number_format($diaTar, 2) }}</span>
-                            </span>
+                        <div class="w-full text-sm">
+                            <div class="font-semibold">
+                                @if($cobroAnterior > 0.01)
+                                    Hoy se cobraron ${{ number_format($cobroAnterior, 2) }} de saldos anteriores.
+                                @else
+                                    Hoy no se cobró nada de saldos anteriores.
+                                @endif
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-3 mt-2 sm:grid-cols-2">
+                                {{-- Ventas del día --}}
+                                <div class="p-3 bg-white border rounded">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-600">Cobrado hoy de ventas del día:</span>
+                                        <span class="font-semibold text-gray-900">${{ number_format($cobroDia, 2) }}</span>
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                            💵 Efectivo: <span class="font-semibold">${{ number_format($diaEfe, 2) }}</span>
+                                        </span>
+                                        <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                            🏦 Transfer: <span class="font-semibold">${{ number_format($diaTra, 2) }}</span>
+                                        </span>
+                                        <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                            💳 Tarjeta: <span class="font-semibold">${{ number_format($diaTar, 2) }}</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {{-- Saldos anteriores --}}
+                                <div class="p-3 bg-white border rounded">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-600">Cobrado hoy de saldos anteriores:</span>
+                                        <span class="font-semibold {{ $cobroAnterior > 0.01 ? 'text-indigo-700' : 'text-gray-900' }}">
+                                            ${{ number_format($cobroAnterior, 2) }}
+                                        </span>
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                            💵 Efectivo: <span class="font-semibold">${{ number_format($antEfe, 2) }}</span>
+                                        </span>
+                                        <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                            🏦 Transfer: <span class="font-semibold">${{ number_format($antTra, 2) }}</span>
+                                        </span>
+                                        <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
+                                            💳 Tarjeta: <span class="font-semibold">${{ number_format($antTar, 2) }}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-2 text-xs {{ $cobroAnterior > 0.01 ? 'text-indigo-700' : 'text-gray-500' }}">
+                                *Así se entiende rápido: cuánto fue del día vs cuánto fue de cobranza de saldos anteriores (y por método).
+                            </div>
                         </div>
                     </div>
-
-                    {{-- Saldos anteriores --}}
-                    <div class="p-3 bg-white border rounded">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-600">Cobrado hoy de saldos anteriores:</span>
-                            <span class="font-semibold {{ $cobroAnterior > 0.01 ? 'text-indigo-700' : 'text-gray-900' }}">
-                                ${{ number_format($cobroAnterior, 2) }}
-                            </span>
-                        </div>
-
-                        {{-- Chips por método (saldos anteriores) --}}
-                        <div class="flex flex-wrap gap-2 mt-2">
-                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
-                                💵 Efectivo: <span class="font-semibold">${{ number_format($antEfe, 2) }}</span>
-                            </span>
-                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
-                                🏦 Transfer: <span class="font-semibold">${{ number_format($antTra, 2) }}</span>
-                            </span>
-                            <span class="px-2 py-1 text-xs border rounded-full bg-gray-50">
-                                💳 Tarjeta: <span class="font-semibold">${{ number_format($antTar, 2) }}</span>
-                            </span>
+                @else
+                    <div class="flex items-start gap-3 p-4 text-gray-700 border rounded-lg bg-gray-50">
+                        <div class="mt-0.5">✅</div>
+                        <div class="text-sm">
+                            <div class="font-semibold">Hoy no hubo cobros registrados.</div>
+                            <div class="mt-1 text-xs text-gray-500">
+                                *No hay cobros de ventas del día ni de saldos anteriores.
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="mt-2 text-xs {{ $cobroAnterior > 0.01 ? 'text-indigo-700' : 'text-gray-500' }}">
-                    *Así se entiende rápido: cuánto fue del día vs cuánto fue de cobranza de saldos anteriores (y por método).
-                </div>
+                @endif
             </div>
-        </div>
-    @else
-        <div class="flex items-start gap-3 p-4 text-gray-700 border rounded-lg bg-gray-50">
-            <div class="mt-0.5">✅</div>
-            <div class="text-sm">
-                <div class="font-semibold">Hoy no hubo cobros registrados.</div>
-                <div class="mt-1 text-xs text-gray-500">
-                    *No hay cobros de ventas del día ni de saldos anteriores.
-                </div>
-            </div>
-        </div>
-    @endif
-</div>
 
-
-            {{-- Traslado --}}
+            {{-- Traslado y cuadre (MANTENER IGUAL) --}}
             <div class="pt-2">
                 @if ($cierre->traslado_id)
                     <a href="{{ route('traslados.show', $cierre->traslado_id) }}"
@@ -162,7 +159,6 @@
                 @endif
             </div>
 
-            {{-- ✅ Cuadre (SOLO si ya está cerrado) --}}
             @if ($cierre->estatus == 'cuadrado' && !is_null($cierre->total_efectivo))
                 @php
                     $efectivoEsperado = (float) ($resumen['cobros_hoy']['metodos']['efectivo'] ?? 0);
@@ -201,7 +197,7 @@
             @endif
         </div>
 
-        {{-- ====================== RESUMEN VENTAS / COBROS ====================== --}}
+        {{-- RESUMEN VENTAS / COBROS (MANTENER IGUAL hasta antes de Cambios) --}}
         <div class="p-6 bg-white rounded-lg shadow">
             <h3 class="mb-4 text-lg font-bold text-gray-700">Resumen de Ventas / Cobros</h3>
 
@@ -235,7 +231,7 @@
                 </div>
             </div>
 
-            {{-- Métodos --}}
+            {{-- Métodos (mantener igual) --}}
             <div class="grid grid-cols-1 gap-4 mt-6 md:grid-cols-3">
                 @php
                     $m = $resumen['cobros_hoy']['metodos'] ?? [];
@@ -271,7 +267,7 @@
                 </div>
             </div>
 
-            {{-- Cobranza de saldos anteriores (por cliente) --}}
+            {{-- Cobranza y pendientes (mantener igual) --}}
             <div class="p-4 mt-6 border rounded-lg">
                 <h4 class="font-semibold text-gray-700">Cobranza de saldos anteriores (hoy)</h4>
 
@@ -303,7 +299,6 @@
                 @endif
             </div>
 
-            {{-- Pendientes del día --}}
             @if(isset($clientesPendientesDia) && $clientesPendientesDia->count() > 0)
                 <div class="mt-6">
                     <h4 class="mb-2 font-semibold text-gray-700">Clientes con saldo pendiente (del día)</h4>
@@ -333,7 +328,7 @@
                 </div>
             @endif
 
-            {{-- Detalle de pagos cobrados hoy (toggle) --}}
+            {{-- Detalle de pagos (mantener igual) --}}
             <div class="p-4 mt-6 bg-white border rounded-lg" x-data="{ open:false }">
                 <div class="flex items-center justify-between">
                     <h4 class="font-semibold">Detalle de pagos cobrados hoy</h4>
@@ -388,7 +383,7 @@
             </div>
         </div>
 
-        {{-- ====================== INVENTARIOS ====================== --}}
+        {{-- INVENTARIOS (mantener igual) --}}
         <div class="p-6 bg-white rounded-lg shadow">
             <h3 class="mb-4 text-lg font-bold text-gray-700">Inventario Inicial</h3>
 
@@ -443,36 +438,114 @@
             @endif
         </div>
 
-        {{-- Cambios --}}
-        @if($cierre->cambios)
+        {{-- ✅ CAMBIOS ACTUALIZADOS --}}
+        @if($cierre->cambios && count($cierre->cambios) > 0)
             <div class="p-6 bg-white rounded-lg shadow">
-                <h3 class="mb-4 text-lg font-bold text-gray-700">Productos en Cambio</h3>
-                <table class="w-full text-sm border border-collapse">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-4 py-2 border">Producto</th>
-                            <th class="px-4 py-2 border">Cantidad</th>
-                            <th class="px-4 py-2 border">Motivo</th>
-                            <th class="px-4 py-2 border">Lote</th>
-                            <th class="px-4 py-2 border">Caducidad</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($cierre->cambios as $cambio)
-                            <tr>
-                                <td class="px-4 py-2 border">{{ $cambio['nombre'] }}</td>
-                                <td class="px-4 py-2 border">{{ $cambio['cantidad'] }}</td>
-                                <td class="px-4 py-2 border">{{ ucfirst($cambio['motivo']) }}</td>
-                                <td class="px-4 py-2 border">{{ $cambio['lote'] ?? 'N/D' }}</td>
-                                <td class="px-4 py-2 border">{{ $cambio['fecha_caducidad'] ?? 'N/D' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                <h3 class="mb-4 text-lg font-bold text-gray-700">
+                    🔄 Productos en Cambio ({{ count($cierre->cambios) }})
+                </h3>
+                
+                @foreach ($cierre->cambios as $index => $cambio)
+                    <div class="p-4 mb-4 transition-all border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md">
+                        {{-- Encabezado del cambio --}}
+                        <div class="pb-3 mb-3 border-b">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h4 class="text-base font-bold text-gray-800">
+                                        👤 {{ $cambio['cliente_nombre'] ?? 'Sin cliente' }}
+                                    </h4>
+                                    @if(isset($cambio['venta_id']))
+                                        <p class="text-sm text-gray-500">
+                                            📋 Venta #{{ $cambio['venta_id'] }}
+                                        </p>
+                                    @endif
+                                </div>
+                                
+                                <span class="px-3 py-1 text-xs font-semibold uppercase rounded-full 
+                                    {{ $cambio['motivo'] === 'dañado' || $cambio['motivo'] === 'danado' ? 'bg-red-100 text-red-800' : 
+                                       ($cambio['motivo'] === 'no_vendido' ? 'bg-yellow-100 text-yellow-800' : 
+                                       'bg-gray-100 text-gray-800') }}">
+                                    {{ str_replace('_', ' ', ucfirst($cambio['motivo'])) }}
+                                </span>
+                            </div>
+                        </div>
+
+                        {{-- Producto devuelto --}}
+                        <div class="mb-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-2xl">📦</span>
+                                <h5 class="text-sm font-semibold text-gray-700">Producto devuelto:</h5>
+                            </div>
+                            
+                            <div class="p-3 border-l-4 border-red-400 rounded-lg bg-red-50">
+                                <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
+                                    <div>
+                                        <span class="block mb-1 text-xs font-semibold text-gray-600">Producto:</span>
+                                        <p class="font-medium text-gray-900">{{ $cambio['nombre'] }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="block mb-1 text-xs font-semibold text-gray-600">Cantidad:</span>
+                                        <p class="font-medium text-gray-900">{{ $cambio['cantidad'] }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="block mb-1 text-xs font-semibold text-gray-600">Lote:</span>
+                                        <p class="font-medium text-gray-900">{{ $cambio['lote'] ?? 'N/D' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="block mb-1 text-xs font-semibold text-gray-600">Caducidad:</span>
+                                        <p class="font-medium text-gray-900">{{ $cambio['fecha_caducidad'] ?? 'N/D' }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Productos de sustitución --}}
+                        @if(isset($cambio['sustituciones']) && count($cambio['sustituciones']) > 0)
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-2xl">✅</span>
+                                    <h5 class="text-sm font-semibold text-gray-700">
+                                        Producto(s) de sustitución entregados ({{ count($cambio['sustituciones']) }}):
+                                    </h5>
+                                </div>
+                                
+                                @foreach($cambio['sustituciones'] as $sustIndex => $sustitucion)
+                                    <div class="p-3 mb-2 border-l-4 border-green-400 rounded-lg bg-green-50">
+                                        <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
+                                            <div>
+                                                <span class="block mb-1 text-xs font-semibold text-gray-600">Producto:</span>
+                                                <p class="font-medium text-gray-900">{{ $sustitucion['nombre'] }}</p>
+                                            </div>
+                                            <div>
+                                                <span class="block mb-1 text-xs font-semibold text-gray-600">Cantidad:</span>
+                                                <p class="font-medium text-gray-900">{{ $sustitucion['cantidad'] }}</p>
+                                            </div>
+                                            <div>
+                                                <span class="block mb-1 text-xs font-semibold text-gray-600">Lote:</span>
+                                                <p class="font-medium text-gray-900">{{ $sustitucion['lote'] ?? 'N/D' }}</p>
+                                            </div>
+                                            <div>
+                                                <span class="block mb-1 text-xs font-semibold text-gray-600">Caducidad:</span>
+                                                <p class="font-medium text-gray-900">{{ $sustitucion['fecha_caducidad'] ?? 'N/D' }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="flex items-start gap-3 p-3 text-sm border-l-4 border-gray-300 rounded-lg bg-gray-50">
+                                <span class="text-lg">⚠️</span>
+                                <p class="text-gray-600">
+                                    No se registraron productos de sustitución para este cambio.
+                                </p>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
             </div>
         @endif
 
-        {{-- ====================== FORM CIERRE ====================== --}}
+        {{-- FORM CIERRE (mantener igual) --}}
         @if ($cierre->estatus == 'pendiente')
             @php
                 $efectivoEsperadoHoy = (float) ($resumen['cobros_hoy']['metodos']['efectivo'] ?? 0);

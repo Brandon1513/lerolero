@@ -19,285 +19,225 @@ use Carbon\Carbon;
 class CierreRutaController extends Controller
 {
     public function index(Request $request)
-{
-    $cierres = CierreRuta::with('vendedor', 'cerradoPor')
-        ->when($request->vendedor_id, fn($q) => $q->where('vendedor_id', $request->vendedor_id))
-        ->when($request->fecha_inicio, fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
-        ->when($request->fecha_fin, fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
-        ->when($request->estatus, fn($q) => $q->where('estatus', $request->estatus))
-        ->when($request->cerrado_por, fn($q) => $q->where('cerrado_por', $request->cerrado_por))
-        ->orderBy('fecha', 'desc')
-        ->paginate(10);
+    {
+        $cierres = CierreRuta::with('vendedor', 'cerradoPor')
+            ->when($request->vendedor_id, fn($q) => $q->where('vendedor_id', $request->vendedor_id))
+            ->when($request->fecha_inicio, fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
+            ->when($request->fecha_fin, fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
+            ->when($request->estatus, fn($q) => $q->where('estatus', $request->estatus))
+            ->when($request->cerrado_por, fn($q) => $q->where('cerrado_por', $request->cerrado_por))
+            ->orderBy('fecha', 'desc')
+            ->paginate(10);
 
-    $vendedores = User::role('vendedor')->get();
-    $admins     = User::role('administrador')->get();
+        $vendedores = User::role('vendedor')->get();
+        $admins     = User::role('administrador')->get();
 
-    // ✅ Resumen por cierre (solo los de la página actual)
-    $resumenIndex = [];
-    foreach ($cierres as $cierre) {
-        $resumenIndex[$cierre->id] = $this->buildResumenIndex($cierre);
+        // ✅ Resumen por cierre (solo los de la página actual)
+        $resumenIndex = [];
+        foreach ($cierres as $cierre) {
+            $resumenIndex[$cierre->id] = $this->buildResumenIndex($cierre);
+        }
+
+        return view('cierres.index', compact('cierres', 'vendedores', 'admins', 'resumenIndex'));
     }
 
-    return view('cierres.index', compact('cierres', 'vendedores', 'admins', 'resumenIndex'));
-}
+    private function buildResumenIndex(CierreRuta $cierre): array
+    {
+        $fecha = Carbon::parse($cierre->fecha)->toDateString();
 
-private function buildResumenIndex(CierreRuta $cierre): array
-{
-    $fecha = Carbon::parse($cierre->fecha)->toDateString();
+        $ventasDiaTotal = (float) Venta::query()
+            ->where('vendedor_id', $cierre->vendedor_id)
+            ->whereDate('fecha', $fecha)
+            ->sum('total');
 
-    // =========================
-    // 1) Ventas del día
-    // =========================
-    $ventasDiaTotal = (float) Venta::query()
-        ->where('vendedor_id', $cierre->vendedor_id)
-        ->whereDate('fecha', $fecha) // si no tienes 'fecha', usa created_at
-        ->sum('total');
+        $pagosHoyBase = PagoVenta::query()
+            ->whereDate('created_at', $fecha)
+            ->where('cobrador_id', $cierre->vendedor_id);
 
-    // ✅ Pagos cobrados HOY por este vendedor (cobrador)
-    $pagosHoyBase = PagoVenta::query()
-        ->whereDate('created_at', $fecha)
-        ->where('cobrador_id', $cierre->vendedor_id);
+        $cobradoHoyTotal = (float) (clone $pagosHoyBase)->sum('monto');
 
-    // =========================
-    // 2) Cobrado hoy (TOTAL)
-    // =========================
-    $cobradoHoyTotal = (float) (clone $pagosHoyBase)->sum('monto');
+        $cobradoHoyVentasDia = (float) (clone $pagosHoyBase)
+            ->whereHas('venta', fn($q) => $q->whereDate('fecha', $fecha))
+            ->sum('monto');
 
-    // =========================
-    // 3) Cobrado hoy (ventas del día)
-    // =========================
-    $cobradoHoyVentasDia = (float) (clone $pagosHoyBase)
-        ->whereHas('venta', fn($q) => $q->whereDate('fecha', $fecha))
-        ->sum('monto');
+        $cobradoHoySaldosAnteriores = (float) (clone $pagosHoyBase)
+            ->whereHas('venta', fn($q) => $q->whereDate('fecha', '<', $fecha))
+            ->sum('monto');
 
-    // =========================
-    // 4) Cobrado hoy (saldos anteriores)
-    // =========================
-    $cobradoHoySaldosAnteriores = (float) (clone $pagosHoyBase)
-        ->whereHas('venta', fn($q) => $q->whereDate('fecha', '<', $fecha))
-        ->sum('monto');
+        $creditoDiaTotal = max($ventasDiaTotal - $cobradoHoyVentasDia, 0);
 
-    // =========================
-    // 5) Crédito del día (lo que quedó pendiente HOY)
-    // =========================
-    $creditoDiaTotal = max($ventasDiaTotal - $cobradoHoyVentasDia, 0);
+        $metodosTotal = (clone $pagosHoyBase)
+            ->selectRaw('metodo, SUM(monto) as total')
+            ->groupBy('metodo')
+            ->pluck('total', 'metodo')
+            ->toArray();
 
-    // =========================
-    // 6) Chips por método
-    //    - metodos: cobrado hoy TOTAL
-    //    - metodos_dia: cobrado hoy pero aplicado a ventas del día
-    //    - metodos_anteriores: cobrado hoy aplicado a saldos anteriores
-    // =========================
-    $metodosTotal = (clone $pagosHoyBase)
-        ->selectRaw('metodo, SUM(monto) as total')
-        ->groupBy('metodo')
-        ->pluck('total', 'metodo')
-        ->toArray();
+        $metodosDia = (clone $pagosHoyBase)
+            ->whereHas('venta', fn($q) => $q->whereDate('fecha', $fecha))
+            ->selectRaw('metodo, SUM(monto) as total')
+            ->groupBy('metodo')
+            ->pluck('total', 'metodo')
+            ->toArray();
 
-    $metodosDia = (clone $pagosHoyBase)
-        ->whereHas('venta', fn($q) => $q->whereDate('fecha', $fecha))
-        ->selectRaw('metodo, SUM(monto) as total')
-        ->groupBy('metodo')
-        ->pluck('total', 'metodo')
-        ->toArray();
+        $metodosAnterior = (clone $pagosHoyBase)
+            ->whereHas('venta', fn($q) => $q->whereDate('fecha', '<', $fecha))
+            ->selectRaw('metodo, SUM(monto) as total')
+            ->groupBy('metodo')
+            ->pluck('total', 'metodo')
+            ->toArray();
 
-    $metodosAnterior = (clone $pagosHoyBase)
-        ->whereHas('venta', fn($q) => $q->whereDate('fecha', '<', $fecha))
-        ->selectRaw('metodo, SUM(monto) as total')
-        ->groupBy('metodo')
-        ->pluck('total', 'metodo')
-        ->toArray();
-
-    return [
-        'ventas_dia_total'              => $ventasDiaTotal,
-        'cobrado_hoy_total'             => $cobradoHoyTotal,
-        'cobrado_hoy_ventas_dia'        => $cobradoHoyVentasDia,
-        'cobrado_hoy_saldos_anteriores' => $cobradoHoySaldosAnteriores,
-        'credito_dia_total'             => $creditoDiaTotal,
-
-        // ✅ para chips en la columna “Cobrado hoy”
-        'metodos'                       => $metodosTotal,
-
-        // ✅ opcionales si luego quieres chips extra
-        'metodos_dia'                   => $metodosDia,
-        'metodos_anteriores'            => $metodosAnterior,
-    ];
-}
+        return [
+            'ventas_dia_total'              => $ventasDiaTotal,
+            'cobrado_hoy_total'             => $cobradoHoyTotal,
+            'cobrado_hoy_ventas_dia'        => $cobradoHoyVentasDia,
+            'cobrado_hoy_saldos_anteriores' => $cobradoHoySaldosAnteriores,
+            'credito_dia_total'             => $creditoDiaTotal,
+            'metodos'                       => $metodosTotal,
+            'metodos_dia'                   => $metodosDia,
+            'metodos_anteriores'            => $metodosAnterior,
+        ];
+    }
 
     public function show(CierreRuta $cierre)
-{
-    $cierre->load(['vendedor', 'cerradoPor']);
+    {
+        $cierre->load(['vendedor', 'cerradoPor']);
 
-    $fecha = Carbon::parse($cierre->fecha)->toDateString();
-    $vendedorId = $cierre->vendedor_id;
+        $fecha = Carbon::parse($cierre->fecha)->toDateString();
+        $vendedorId = $cierre->vendedor_id;
 
-    // Ventas del día
-    $ventasDia = Venta::with('cliente')
-        ->where('vendedor_id', $vendedorId)
-        ->whereDate('fecha', $fecha)
-        ->get();
+        $ventasDia = Venta::with('cliente')
+            ->where('vendedor_id', $vendedorId)
+            ->whereDate('fecha', $fecha)
+            ->get();
 
-    $ventasDiaIds = $ventasDia->pluck('id')->all();
+        $ventasDiaIds = $ventasDia->pluck('id')->all();
 
-    $totalVentasDia          = (float) $ventasDia->sum('total');
-    $totalPagadoEnVentasDia  = (float) $ventasDia->sum('total_pagado');
-    $saldoPendienteDia       = (float) $ventasDia->sum('saldo_pendiente'); // ✅ lo que se fue a crédito HOY
+        $totalVentasDia          = (float) $ventasDia->sum('total');
+        $totalPagadoEnVentasDia  = (float) $ventasDia->sum('total_pagado');
+        $saldoPendienteDia       = (float) $ventasDia->sum('saldo_pendiente');
 
-    // ✅ NUEVO: saldo pendiente acumulado del vendedor (todas las fechas)
-    $saldoPendienteAcumulado = (float) Venta::where('vendedor_id', $vendedorId)
-        ->whereIn('estado', ['credito', 'parcial'])
-        ->sum('saldo_pendiente');
+        $saldoPendienteAcumulado = (float) Venta::where('vendedor_id', $vendedorId)
+            ->whereIn('estado', ['credito', 'parcial'])
+            ->sum('saldo_pendiente');
 
-    // Pagos cobrados HOY (pueden ser de ventas hoy o de ventas pasadas)
-    $pagosHoy = PagoVenta::with('venta.cliente')
-        ->where('cobrador_id', $vendedorId)
-        ->whereDate('created_at', $fecha) // ✅ ojo: tu tabla no tiene columna "fecha", usa created_at
-        ->get();
+        $pagosHoy = PagoVenta::with('venta.cliente')
+            ->where('cobrador_id', $vendedorId)
+            ->whereDate('created_at', $fecha)
+            ->get();
 
-    $totalCobradoHoy = (float) $pagosHoy->sum('monto');
+        $totalCobradoHoy = (float) $pagosHoy->sum('monto');
 
-    // Separar pagos hoy: a ventas del día vs a ventas anteriores
-    $pagosHoyVentasDia        = $pagosHoy->filter(fn($p) => in_array($p->venta_id, $ventasDiaIds));
-    $pagosHoyVentasAnteriores = $pagosHoy->filter(fn($p) => !in_array($p->venta_id, $ventasDiaIds));
+        $pagosHoyVentasDia        = $pagosHoy->filter(fn($p) => in_array($p->venta_id, $ventasDiaIds));
+        $pagosHoyVentasAnteriores = $pagosHoy->filter(fn($p) => !in_array($p->venta_id, $ventasDiaIds));
 
-    $totalCobradoHoyVentasDia        = (float) $pagosHoyVentasDia->sum('monto');
-    $totalCobradoHoyVentasAnteriores = (float) $pagosHoyVentasAnteriores->sum('monto');
+        $totalCobradoHoyVentasDia        = (float) $pagosHoyVentasDia->sum('monto');
+        $totalCobradoHoyVentasAnteriores = (float) $pagosHoyVentasAnteriores->sum('monto');
 
-    // Desglose por método (HOY)
-    $metodos = ['efectivo', 'transferencia', 'tarjeta'];
+        $metodos = ['efectivo', 'transferencia', 'tarjeta'];
 
-    $metodosHoy = collect($metodos)->mapWithKeys(fn($m) => [
-        $m => (float) $pagosHoy->where('metodo', $m)->sum('monto')
-    ])->toArray();
+        $metodosHoy = collect($metodos)->mapWithKeys(fn($m) => [
+            $m => (float) $pagosHoy->where('metodo', $m)->sum('monto')
+        ])->toArray();
 
-    $metodosHoyVentasDia = collect($metodos)->mapWithKeys(fn($m) => [
-        $m => (float) $pagosHoyVentasDia->where('metodo', $m)->sum('monto')
-    ])->toArray();
+        $metodosHoyVentasDia = collect($metodos)->mapWithKeys(fn($m) => [
+            $m => (float) $pagosHoyVentasDia->where('metodo', $m)->sum('monto')
+        ])->toArray();
 
-    $metodosHoyVentasAnteriores = collect($metodos)->mapWithKeys(fn($m) => [
-        $m => (float) $pagosHoyVentasAnteriores->where('metodo', $m)->sum('monto')
-    ])->toArray();
+        $metodosHoyVentasAnteriores = collect($metodos)->mapWithKeys(fn($m) => [
+            $m => (float) $pagosHoyVentasAnteriores->where('metodo', $m)->sum('monto')
+        ])->toArray();
 
-    // Para cuadrar caja: efectivo esperado hoy vs efectivo entregado (cuando cierre)
-    $efectivoEsperadoHoy = (float) ($metodosHoy['efectivo'] ?? 0);
+        $efectivoEsperadoHoy = (float) ($metodosHoy['efectivo'] ?? 0);
 
-    // Clientes con saldo pendiente DEL DÍA
-    $clientesPendientesDia = $ventasDia
-        ->filter(fn($v) => (float)$v->saldo_pendiente > 0)
-        ->groupBy('cliente_id')
-        ->map(function ($rows) {
-            $first = $rows->first();
+        $clientesPendientesDia = $ventasDia
+            ->filter(fn($v) => (float)$v->saldo_pendiente > 0)
+            ->groupBy('cliente_id')
+            ->map(function ($rows) {
+                $first = $rows->first();
+                return [
+                    'cliente'   => $first->cliente?->nombre ?? '—',
+                    'ventas'    => $rows->count(),
+                    'pendiente' => (float) $rows->sum('saldo_pendiente'),
+                ];
+            })->values();
+
+        $cobranzaAnteriorPorCliente = $pagosHoyVentasAnteriores
+            ->groupBy(fn($p) => $p->venta?->cliente_id)
+            ->map(function ($rows) {
+                $first = $rows->first();
+                return [
+                    'cliente'            => $first->venta?->cliente?->nombre ?? '—',
+                    'monto'              => (float) $rows->sum('monto'),
+                    'ventas_involucradas'=> $rows->pluck('venta_id')->unique()->count(),
+                ];
+            })->values();
+
+        $pagosHoyDetalle = $pagosHoy->map(function ($p) {
             return [
-                'cliente'   => $first->cliente?->nombre ?? '—',
-                'ventas'    => $rows->count(),
-                'pendiente' => (float) $rows->sum('saldo_pendiente'),
+                'cliente'     => $p->venta?->cliente?->nombre ?? '—',
+                'venta_id'    => $p->venta_id,
+                'fecha_venta' => optional($p->venta?->fecha)->format('d/m/Y') ?? '—',
+                'fecha_cobro' => optional($p->created_at)->format('d/m/Y H:i') ?? '—',
+                'metodo'      => $p->metodo,
+                'monto'       => (float) $p->monto,
+                'referencia'  => $p->referencia,
             ];
-        })->values();
+        });
 
-    // Pagos de saldos anteriores agrupados por cliente
-    $cobranzaAnteriorPorCliente = $pagosHoyVentasAnteriores
-        ->groupBy(fn($p) => $p->venta?->cliente_id)
-        ->map(function ($rows) {
-            $first = $rows->first();
-            return [
-                'cliente'            => $first->venta?->cliente?->nombre ?? '—',
-                'monto'              => (float) $rows->sum('monto'),
-                'ventas_involucradas'=> $rows->pluck('venta_id')->unique()->count(),
-            ];
-        })->values();
-
-    // ✅ Detalle de pagos cobrados hoy (para tu tabla toggle)
-    $pagosHoyDetalle = $pagosHoy->map(function ($p) {
-        return [
-            'cliente'     => $p->venta?->cliente?->nombre ?? '—',
-            'venta_id'    => $p->venta_id,
-            'fecha_venta' => optional($p->venta?->fecha)->format('d/m/Y') ?? '—',
-            'fecha_cobro' => optional($p->created_at)->format('d/m/Y H:i') ?? '—',
-            'metodo'      => $p->metodo,
-            'monto'       => (float) $p->monto,
-            'referencia'  => $p->referencia,
+        $resumen = [
+            'ventas_dia' => [
+                'total_ventas'           => $totalVentasDia,
+                'total_pagado_en_ventas' => $totalPagadoEnVentasDia,
+                'saldo_pendiente'        => $saldoPendienteDia,
+                'count_credito'          => $ventasDia->where('estado', 'credito')->count(),
+                'count_parcial'          => $ventasDia->where('estado', 'parcial')->count(),
+                'count_pagada'           => $ventasDia->where('estado', 'pagada')->count(),
+            ],
+            'cobros_hoy' => [
+                'total'                   => $totalCobradoHoy,
+                'ventas_dia'              => $totalCobradoHoyVentasDia,
+                'ventas_anteriores'       => $totalCobradoHoyVentasAnteriores,
+                'metodos'                 => $metodosHoy,
+                'metodos_ventas_dia'      => $metodosHoyVentasDia,
+                'metodos_ventas_anteriores'=> $metodosHoyVentasAnteriores,
+                'efectivo_esperado'       => $efectivoEsperadoHoy,
+            ],
         ];
-    });
 
-    $resumen = [
-        'ventas_dia' => [
-            'total_ventas'           => $totalVentasDia,
-            'total_pagado_en_ventas' => $totalPagadoEnVentasDia,
-            'saldo_pendiente'        => $saldoPendienteDia,
-            'count_credito'          => $ventasDia->where('estado', 'credito')->count(),
-            'count_parcial'          => $ventasDia->where('estado', 'parcial')->count(),
-            'count_pagada'           => $ventasDia->where('estado', 'pagada')->count(),
-        ],
-        'cobros_hoy' => [
-            'total'                   => $totalCobradoHoy,
-            'ventas_dia'              => $totalCobradoHoyVentasDia,
-            'ventas_anteriores'       => $totalCobradoHoyVentasAnteriores,
-            'metodos'                 => $metodosHoy,
-            'metodos_ventas_dia'      => $metodosHoyVentasDia,
-            'metodos_ventas_anteriores'=> $metodosHoyVentasAnteriores,
-            'efectivo_esperado'       => $efectivoEsperadoHoy,
-        ],
-    ];
-
-    return view('cierres.show', compact(
-        'cierre',
-        'resumen',
-        'clientesPendientesDia',
-        'cobranzaAnteriorPorCliente',
-        'pagosHoyDetalle',
-        'saldoPendienteAcumulado'
-    ));
-}
-
-
-    public function update(Request $request, CierreRuta $cierre)
-{
-    $request->validate([
-        'total_efectivo' => 'required|numeric|min:0',
-        'observaciones'  => 'nullable|string|max:1000',
-    ]);
-
-    $almacenVendedor = Almacen::where('tipo', 'vendedor')->where('user_id', $cierre->vendedor_id)->first();
-    $almacenGeneral  = Almacen::where('tipo', 'general')->first();
-    $almacenRechazo  = Almacen::where('tipo', 'rechazo')->first();
-
-    if (!$almacenVendedor || !$almacenGeneral || !$almacenRechazo) {
-        return redirect()->route('cierres.index')->withErrors('Error al localizar almacenes.');
+        return view('cierres.show', compact(
+            'cierre',
+            'resumen',
+            'clientesPendientesDia',
+            'cobranzaAnteriorPorCliente',
+            'pagosHoyDetalle',
+            'saldoPendienteAcumulado'
+        ));
     }
 
-    // =========================
-    // ✅ EFECTIVO ESPERADO (HOY)
-    // =========================
-    $fecha = Carbon::parse($cierre->fecha)->toDateString();
+    public function update(Request $request, CierreRuta $cierre)
+    {
+        $request->validate([
+            'total_efectivo' => 'required|numeric|min:0',
+            'observaciones'  => 'nullable|string|max:1000',
+        ]);
 
-    // Sumamos SOLO efectivo cobrado ese día por el vendedor (incluye ventas del día + abonos anteriores)
-    $efectivoEsperadoHoy = (float) PagoVenta::where('cobrador_id', $cierre->vendedor_id)
-        ->whereDate('created_at', $fecha)
-        ->where('metodo', 'efectivo')
-        ->sum('monto');
+        $almacenVendedor = Almacen::where('tipo', 'vendedor')->where('user_id', $cierre->vendedor_id)->first();
+        $almacenGeneral  = Almacen::where('tipo', 'general')->first();
+        $almacenRechazo  = Almacen::where('tipo', 'rechazo')->first();
 
-    // 1. Inventario final con lote y caducidad
-    $inventarioFinal = Inventario::where('almacen_id', $almacenVendedor->id)
-        ->get()
-        ->map(function ($item) {
-            return [
-                'producto_id'     => $item->producto_id,
-                'nombre'          => optional($item->producto)->nombre,
-                'cantidad'        => $item->cantidad,
-                'lote'            => $item->lote,
-                'fecha_caducidad' => $item->fecha_caducidad,
-            ];
-        })->toArray();
+        if (!$almacenVendedor || !$almacenGeneral || !$almacenRechazo) {
+            return redirect()->route('cierres.index')->withErrors('Error al localizar almacenes.');
+        }
 
-    // 2. Inventario inicial
-    $trasladoInicial = Traslado::where('almacen_destino_id', $almacenVendedor->id)
-        ->whereDate('fecha', Carbon::parse($cierre->fecha)->toDateString())
-        ->latest()
-        ->first();
+        $fecha = Carbon::parse($cierre->fecha)->toDateString();
 
-    $inventarioInicial = [];
-    if ($trasladoInicial) {
-        $inventarioInicial = DetalleTraslado::where('traslado_id', $trasladoInicial->id)
+        $efectivoEsperadoHoy = (float) PagoVenta::where('cobrador_id', $cierre->vendedor_id)
+            ->whereDate('created_at', $fecha)
+            ->where('metodo', 'efectivo')
+            ->sum('monto');
+
+        // 1. Inventario final
+        $inventarioFinal = Inventario::where('almacen_id', $almacenVendedor->id)
             ->get()
             ->map(function ($item) {
                 return [
@@ -308,131 +248,169 @@ private function buildResumenIndex(CierreRuta $cierre): array
                     'fecha_caducidad' => $item->fecha_caducidad,
                 ];
             })->toArray();
-    }
 
-    // 3. Procesar cambios
-    $rechazos = RechazoTemporal::where('vendedor_id', $cierre->vendedor_id)->get();
-    $listaCambios = [];
+        // 2. Inventario inicial
+        $trasladoInicial = Traslado::where('almacen_destino_id', $almacenVendedor->id)
+            ->whereDate('fecha', Carbon::parse($cierre->fecha)->toDateString())
+            ->latest()
+            ->first();
 
-    foreach ($rechazos as $rechazo) {
-        $producto = Producto::find($rechazo->producto_id);
-        if (!$producto) continue;
+        $inventarioInicial = [];
+        if ($trasladoInicial) {
+            $inventarioInicial = DetalleTraslado::where('traslado_id', $trasladoInicial->id)
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'producto_id'     => $item->producto_id,
+                        'nombre'          => optional($item->producto)->nombre,
+                        'cantidad'        => $item->cantidad,
+                        'lote'            => $item->lote,
+                        'fecha_caducidad' => $item->fecha_caducidad,
+                    ];
+                })->toArray();
+        }
 
-        $trasladoRechazo = Traslado::create([
+        // 3. ✅ PROCESAR CAMBIOS CON INFO COMPLETA
+        $rechazos = RechazoTemporal::where('vendedor_id', $cierre->vendedor_id)
+            ->with(['producto', 'venta.cliente', 'detalles.producto'])
+            ->get();
+        
+        $listaCambios = [];
+
+        foreach ($rechazos as $rechazo) {
+            $producto = $rechazo->producto;
+            if (!$producto) continue;
+
+            $trasladoRechazo = Traslado::create([
+                'almacen_origen_id'  => $almacenVendedor->id,
+                'almacen_destino_id' => $almacenRechazo->id,
+                'fecha'              => now(),
+                'observaciones'      => 'Producto rechazado por ' . $rechazo->motivo,
+                'user_id'            => auth()->id(),
+            ]);
+
+            DetalleTraslado::create([
+                'traslado_id' => $trasladoRechazo->id,
+                'producto_id' => $rechazo->producto_id,
+                'cantidad'    => $rechazo->cantidad,
+            ]);
+
+            $inventarioRechazo = Inventario::firstOrNew([
+                'almacen_id'  => $almacenRechazo->id,
+                'producto_id' => $rechazo->producto_id,
+            ]);
+
+            $inventarioRechazo->cantidad = (float)($inventarioRechazo->cantidad ?? 0) + (float)$rechazo->cantidad;
+            $inventarioRechazo->save();
+
+            // ✅ CAMBIO PRINCIPAL: Agregar info del cliente y productos de sustitución
+            $cambioItem = [
+                // Producto devuelto
+                'producto_id'     => $rechazo->producto_id,
+                'nombre'          => $producto->nombre,
+                'cantidad'        => $rechazo->cantidad,
+                'motivo'          => $rechazo->motivo,
+                'lote'            => $rechazo->lote,
+                'fecha_caducidad' => $rechazo->fecha_caducidad,
+                
+                // ✅ Info del cliente
+                'cliente_id'      => $rechazo->venta?->cliente_id,
+                'cliente_nombre'  => $rechazo->venta?->cliente?->nombre ?? 'Sin cliente',
+                'venta_id'        => $rechazo->venta_id,
+                
+                // ✅ Productos de sustitución
+                'sustituciones'   => $rechazo->detalles->map(function ($detalle) {
+                    return [
+                        'producto_id'     => $detalle->producto_id,
+                        'nombre'          => $detalle->producto?->nombre ?? 'Producto desconocido',
+                        'cantidad'        => $detalle->cantidad,
+                        'lote'            => $detalle->lote,
+                        'fecha_caducidad' => $detalle->fecha_caducidad,
+                    ];
+                })->toArray(),
+            ];
+
+            $listaCambios[] = $cambioItem;
+
+            $rechazo->delete();
+        }
+
+        // 4. Crear traslado de devolución
+        $traslado = Traslado::create([
             'almacen_origen_id'  => $almacenVendedor->id,
-            'almacen_destino_id' => $almacenRechazo->id,
+            'almacen_destino_id' => $almacenGeneral->id,
             'fecha'              => now(),
-            'observaciones'      => 'Producto rechazado por ' . $rechazo->motivo,
+            'observaciones'      => 'Devolución por cierre de ruta del vendedor ' . $cierre->vendedor->name,
             'user_id'            => auth()->id(),
         ]);
 
-        DetalleTraslado::create([
-            'traslado_id' => $trasladoRechazo->id,
-            'producto_id' => $rechazo->producto_id,
-            'cantidad'    => $rechazo->cantidad,
-        ]);
+        foreach ($inventarioFinal as $item) {
+            $producto = Producto::find($item['producto_id']);
+            if (!$producto) continue;
 
-        $inventarioRechazo = Inventario::firstOrNew([
-            'almacen_id'  => $almacenRechazo->id,
-            'producto_id' => $rechazo->producto_id,
-        ]);
+            DetalleTraslado::create([
+                'traslado_id' => $traslado->id,
+                'producto_id' => $producto->id,
+                'cantidad'    => $item['cantidad'],
+            ]);
 
-        $inventarioRechazo->cantidad = (float)($inventarioRechazo->cantidad ?? 0) + (float)$rechazo->cantidad;
-        $inventarioRechazo->save();
+            $inventarioGeneral = Inventario::firstOrNew([
+                'almacen_id'  => $almacenGeneral->id,
+                'producto_id' => $producto->id,
+            ]);
 
-        $listaCambios[] = [
-            'producto_id'     => $rechazo->producto_id,
-            'nombre'          => $producto->nombre,
-            'cantidad'        => $rechazo->cantidad,
-            'motivo'          => $rechazo->motivo,
-            'lote'            => $rechazo->lote,
-            'fecha_caducidad' => $rechazo->fecha_caducidad,
-        ];
+            $inventarioGeneral->cantidad = (float)($inventarioGeneral->cantidad ?? 0) + (float)$item['cantidad'];
+            $inventarioGeneral->save();
+        }
 
-        $rechazo->delete();
-    }
+        // 5. Vaciar inventario del vendedor
+        Inventario::where('almacen_id', $almacenVendedor->id)->delete();
 
-    // 4. Crear traslado de productos devueltos al almacén general
-    $traslado = Traslado::create([
-        'almacen_origen_id'  => $almacenVendedor->id,
-        'almacen_destino_id' => $almacenGeneral->id,
-        'fecha'              => now(),
-        'observaciones'      => 'Devolución por cierre de ruta del vendedor ' . $cierre->vendedor->name,
-        'user_id'            => auth()->id(),
-    ]);
-
-    foreach ($inventarioFinal as $item) {
-        $producto = Producto::find($item['producto_id']);
-        if (!$producto) continue;
-
-        DetalleTraslado::create([
-            'traslado_id' => $traslado->id,
-            'producto_id' => $producto->id,
-            'cantidad'    => $item['cantidad'],
-        ]);
-
-        $inventarioGeneral = Inventario::firstOrNew([
-            'almacen_id'  => $almacenGeneral->id,
-            'producto_id' => $producto->id,
-        ]);
-
-        $inventarioGeneral->cantidad = (float)($inventarioGeneral->cantidad ?? 0) + (float)$item['cantidad'];
-        $inventarioGeneral->save();
-    }
-
-    // 5. Vaciar inventario del vendedor
-    Inventario::where('almacen_id', $almacenVendedor->id)->delete();
-
-    // 6. Actualizar cierre
-    $cierre->update([
-        'total_efectivo'     => $request->total_efectivo,
-        'observaciones'      => $request->observaciones,
-        'estatus'            => 'cuadrado',
-        'cerrado_por'        => auth()->id(),
-        'inventario_inicial' => $inventarioInicial,
-        'inventario_final'   => $inventarioFinal,
-        'cambios'            => $listaCambios,
-        'traslado_id'        => $traslado->id,
-    ]);
-
-    // ✅ CUADRE REAL: entregado vs efectivo cobrado HOY
-    $diferencia = (float) $cierre->total_efectivo - (float) $efectivoEsperadoHoy;
-
-    // tolerancia por decimales
-    $eps = 0.01;
-    if (abs($diferencia) <= $eps) $diferencia = 0;
-
-    $toast = $diferencia === 0 ? 'cuadrado' : ($diferencia < 0 ? 'faltan' : 'sobran');
-
-    return redirect()
-        ->route('cierres.index')
-        ->with([
-            'success' => 'Cierre completado correctamente.',
-            'toast'   => $toast,
-        ]);
-}
-public function liberarVentas(CierreRuta $cierre)
-{
-    $vendedor = User::findOrFail($cierre->vendedor_id);
-
-    // 1) liberar al vendedor
-    $vendedor->update([
-        'ventas_bloqueadas' => false,
-        'ventas_bloqueadas_desde' => null,
-        'ventas_bloqueadas_motivo' => null,
-        'ventas_bloqueadas_cierre_id' => null,
-    ]);
-
-    // 2) marcar el cierre como liberado (ya no cuenta como pendiente)
-    if ($cierre->estatus === 'pendiente') {
+        // 6. Actualizar cierre
         $cierre->update([
-            'estatus' => 'liberado',
+            'total_efectivo'     => $request->total_efectivo,
+            'observaciones'      => $request->observaciones,
+            'estatus'            => 'cuadrado',
+            'cerrado_por'        => auth()->id(),
+            'inventario_inicial' => $inventarioInicial,
+            'inventario_final'   => $inventarioFinal,
+            'cambios'            => $listaCambios, // ✅ Ahora incluye cliente y sustituciones
+            'traslado_id'        => $traslado->id,
         ]);
+
+        $diferencia = (float) $cierre->total_efectivo - (float) $efectivoEsperadoHoy;
+        $eps = 0.01;
+        if (abs($diferencia) <= $eps) $diferencia = 0;
+
+        $toast = $diferencia === 0 ? 'cuadrado' : ($diferencia < 0 ? 'faltan' : 'sobran');
+
+        return redirect()
+            ->route('cierres.index')
+            ->with([
+                'success' => 'Cierre completado correctamente.',
+                'toast'   => $toast,
+            ]);
     }
 
-    return redirect()
-        ->route('cierres.index')
-        ->with('success', "Vendedor {$vendedor->name} liberado. Ya puede realizar ventas.");
-}
+    public function liberarVentas(CierreRuta $cierre)
+    {
+        $vendedor = User::findOrFail($cierre->vendedor_id);
 
+        $vendedor->update([
+            'ventas_bloqueadas' => false,
+            'ventas_bloqueadas_desde' => null,
+            'ventas_bloqueadas_motivo' => null,
+            'ventas_bloqueadas_cierre_id' => null,
+        ]);
+
+        if ($cierre->estatus === 'pendiente') {
+            $cierre->update([
+                'estatus' => 'liberado',
+            ]);
+        }
+
+        return redirect()
+            ->route('cierres.index')
+            ->with('success', "Vendedor {$vendedor->name} liberado. Ya puede realizar ventas.");
+    }
 }
