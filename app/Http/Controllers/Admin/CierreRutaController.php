@@ -413,15 +413,22 @@ private function buildResumenIndex(CierreRuta $cierre): array
 }
 public function liberarVentas(CierreRuta $cierre)
 {
-    // Solo admins deberían poder (ideal: middleware/authorize)
     $vendedor = User::findOrFail($cierre->vendedor_id);
 
+    // 1) liberar al vendedor
     $vendedor->update([
         'ventas_bloqueadas' => false,
         'ventas_bloqueadas_desde' => null,
         'ventas_bloqueadas_motivo' => null,
         'ventas_bloqueadas_cierre_id' => null,
     ]);
+
+    // 2) marcar el cierre como liberado (ya no cuenta como pendiente)
+    if ($cierre->estatus === 'pendiente') {
+        $cierre->update([
+            'estatus' => 'liberado',
+        ]);
+    }
 
     return redirect()
         ->route('cierres.index')

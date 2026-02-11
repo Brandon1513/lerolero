@@ -230,19 +230,18 @@
                                         </td>
 
                                         <td class="px-4 py-2 text-center border">
+                                            {{-- Acciones --}}
                                             <div class="flex flex-wrap justify-center gap-2">
-                                                <a href="{{ route('cierres.show', $cierre) }}"
-                                                class="px-3 py-1 text-white bg-blue-500 rounded-md hover:bg-blue-700">
-                                                    Ver Detalle
+                                                <a href="{{ route('cierres.show', $cierre) }}" class="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200">
+                                                    Ver
                                                 </a>
 
-                                                @if(optional($cierre->vendedor)->ventas_bloqueadas)
-                                                    <form method="POST" action="{{ route('cierres.liberarVentas', $cierre) }}"
-                                                        onsubmit="return confirm('¿Liberar ventas para {{ $cierre->vendedor->name }}?');">
+                                                @if($cierre->estatus === 'pendiente')
+                                                    <form method="POST" action="{{ route('cierres.liberar', $cierre) }}"
+                                                        onsubmit="return confirm('¿Liberar al vendedor para que pueda vender de nuevo?')">
                                                         @csrf
-                                                        <button type="submit"
-                                                                class="px-3 py-1 text-white rounded-md bg-emerald-600 hover:bg-emerald-700">
-                                                            Liberar ventas
+                                                        <button type="submit" class="px-3 py-1 text-sm text-white rounded bg-amber-600 hover:bg-amber-700">
+                                                            Liberar
                                                         </button>
                                                     </form>
                                                 @endif

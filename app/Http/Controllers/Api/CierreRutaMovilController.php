@@ -24,6 +24,7 @@ class CierreRutaMovilController extends Controller
                 // ✅ Evita duplicados (y ayuda contra doble tap)
                 $yaExiste = CierreRuta::where('vendedor_id', $vendedor->id)
                     ->whereDate('fecha', $hoy)
+                    ->where('estatus', 'pendiente') // ✅ solo impide si hay uno pendiente
                     ->lockForUpdate()
                     ->exists();
 
