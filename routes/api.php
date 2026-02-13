@@ -157,6 +157,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Vincular venta: Rate limit moderado
         Route::post('/vincular/{venta_id}', [VisitaClienteController::class, 'vincularVenta'])
             ->middleware('throttle:60,1');
+
+        //Historial de ventas de un cliente
+        Route::get('ventas/{venta}/cambios', [VentaController::class, 'cambios']);    
     });
 
     // --------------------------------------------

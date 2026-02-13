@@ -604,4 +604,46 @@ class VentaController extends Controller
             ], 201);
         });
     }
+    public function cambios(Venta $venta)
+{
+    // Verificar que la venta pertenece al vendedor autenticado (seguridad)
+    if ($venta->vendedor_id !== auth()->id()) {
+        return response()->json([], 403);
+    }
+
+    // Buscar en cierre_rutas el cierre del día de la venta
+    // que tenga esta venta_id en el JSON de cambios
+    $fechaVenta = \Carbon\Carbon::parse($venta->fecha)->toDateString();
+
+    $cierre = \App\Models\CierreRuta::where('vendedor_id', $venta->vendedor_id)
+        ->whereDate('fecha', $fechaVenta)
+        ->whereNotNull('cambios')
+        ->first();
+
+    if (!$cierre || empty($cierre->cambios)) {
+        return response()->json([]);
+    }
+
+    // Filtrar solo los cambios que corresponden a esta venta
+    $cambiosDeLaVenta = collect($cierre->cambios)
+        ->filter(fn($c) => ($c['venta_id'] ?? null) == $venta->id)
+        ->values()
+        ->map(function ($c) {
+            return [
+                'nombre'          => $c['nombre'] ?? null,
+                'cantidad'        => $c['cantidad'] ?? 0,
+                'motivo'          => $c['motivo'] ?? null,
+                'lote'            => $c['lote'] ?? null,
+                'fecha_caducidad' => $c['fecha_caducidad'] ?? null,
+                'sustituciones'   => collect($c['sustituciones'] ?? [])->map(fn($s) => [
+                    'nombre'          => $s['nombre'] ?? null,
+                    'cantidad'        => $s['cantidad'] ?? 0,
+                    'lote'            => $s['lote'] ?? null,
+                    'fecha_caducidad' => $s['fecha_caducidad'] ?? null,
+                ])->toArray(),
+            ];
+        });
+
+    return response()->json($cambiosDeLaVenta);
+}
 }

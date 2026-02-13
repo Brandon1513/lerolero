@@ -32,7 +32,6 @@ class CierreRutaController extends Controller
         $vendedores = User::role('vendedor')->get();
         $admins     = User::role('administrador')->get();
 
-        // ✅ Resumen por cierre (solo los de la página actual)
         $resumenIndex = [];
         foreach ($cierres as $cierre) {
             $resumenIndex[$cierre->id] = $this->buildResumenIndex($cierre);
@@ -194,13 +193,13 @@ class CierreRutaController extends Controller
                 'count_pagada'           => $ventasDia->where('estado', 'pagada')->count(),
             ],
             'cobros_hoy' => [
-                'total'                   => $totalCobradoHoy,
-                'ventas_dia'              => $totalCobradoHoyVentasDia,
-                'ventas_anteriores'       => $totalCobradoHoyVentasAnteriores,
-                'metodos'                 => $metodosHoy,
-                'metodos_ventas_dia'      => $metodosHoyVentasDia,
+                'total'                    => $totalCobradoHoy,
+                'ventas_dia'               => $totalCobradoHoyVentasDia,
+                'ventas_anteriores'        => $totalCobradoHoyVentasAnteriores,
+                'metodos'                  => $metodosHoy,
+                'metodos_ventas_dia'       => $metodosHoyVentasDia,
                 'metodos_ventas_anteriores'=> $metodosHoyVentasAnteriores,
-                'efectivo_esperado'       => $efectivoEsperadoHoy,
+                'efectivo_esperado'        => $efectivoEsperadoHoy,
             ],
         ];
 
@@ -270,11 +269,11 @@ class CierreRutaController extends Controller
                 })->toArray();
         }
 
-        // 3. ✅ PROCESAR CAMBIOS CON INFO COMPLETA
+        // 3. Procesar cambios con info completa (cliente + sustituciones)
         $rechazos = RechazoTemporal::where('vendedor_id', $cierre->vendedor_id)
             ->with(['producto', 'venta.cliente', 'detalles.producto'])
             ->get();
-        
+
         $listaCambios = [];
 
         foreach ($rechazos as $rechazo) {
@@ -299,26 +298,19 @@ class CierreRutaController extends Controller
                 'almacen_id'  => $almacenRechazo->id,
                 'producto_id' => $rechazo->producto_id,
             ]);
-
             $inventarioRechazo->cantidad = (float)($inventarioRechazo->cantidad ?? 0) + (float)$rechazo->cantidad;
             $inventarioRechazo->save();
 
-            // ✅ CAMBIO PRINCIPAL: Agregar info del cliente y productos de sustitución
-            $cambioItem = [
-                // Producto devuelto
+            $listaCambios[] = [
                 'producto_id'     => $rechazo->producto_id,
                 'nombre'          => $producto->nombre,
                 'cantidad'        => $rechazo->cantidad,
                 'motivo'          => $rechazo->motivo,
                 'lote'            => $rechazo->lote,
                 'fecha_caducidad' => $rechazo->fecha_caducidad,
-                
-                // ✅ Info del cliente
                 'cliente_id'      => $rechazo->venta?->cliente_id,
                 'cliente_nombre'  => $rechazo->venta?->cliente?->nombre ?? 'Sin cliente',
                 'venta_id'        => $rechazo->venta_id,
-                
-                // ✅ Productos de sustitución
                 'sustituciones'   => $rechazo->detalles->map(function ($detalle) {
                     return [
                         'producto_id'     => $detalle->producto_id,
@@ -330,12 +322,10 @@ class CierreRutaController extends Controller
                 })->toArray(),
             ];
 
-            $listaCambios[] = $cambioItem;
-
             $rechazo->delete();
         }
 
-        // 4. Crear traslado de devolución
+        // 4. Traslado de devolución al almacén general
         $traslado = Traslado::create([
             'almacen_origen_id'  => $almacenVendedor->id,
             'almacen_destino_id' => $almacenGeneral->id,
@@ -358,7 +348,6 @@ class CierreRutaController extends Controller
                 'almacen_id'  => $almacenGeneral->id,
                 'producto_id' => $producto->id,
             ]);
-
             $inventarioGeneral->cantidad = (float)($inventarioGeneral->cantidad ?? 0) + (float)$item['cantidad'];
             $inventarioGeneral->save();
         }
@@ -374,20 +363,33 @@ class CierreRutaController extends Controller
             'cerrado_por'        => auth()->id(),
             'inventario_inicial' => $inventarioInicial,
             'inventario_final'   => $inventarioFinal,
-            'cambios'            => $listaCambios, // ✅ Ahora incluye cliente y sustituciones
+            'cambios'            => $listaCambios,
             'traslado_id'        => $traslado->id,
         ]);
 
+        // ✅ NUEVO: Liberar automáticamente al vendedor al cuadrar el cierre
+        // Antes solo se liberaba con el botón manual "Liberar Ventas".
+        // Ahora al cuadrar = cierre completo = vendedor libre para el siguiente día.
+        $vendedor = User::find($cierre->vendedor_id);
+        if ($vendedor) {
+            $vendedor->update([
+                'ventas_bloqueadas'           => false,
+                'ventas_bloqueadas_desde'     => null,
+                'ventas_bloqueadas_motivo'    => null,
+                'ventas_bloqueadas_cierre_id' => null,
+            ]);
+        }
+
+        // 7. Cuadre de efectivo
         $diferencia = (float) $cierre->total_efectivo - (float) $efectivoEsperadoHoy;
         $eps = 0.01;
         if (abs($diferencia) <= $eps) $diferencia = 0;
-
         $toast = $diferencia === 0 ? 'cuadrado' : ($diferencia < 0 ? 'faltan' : 'sobran');
 
         return redirect()
             ->route('cierres.index')
             ->with([
-                'success' => 'Cierre completado correctamente.',
+                'success' => 'Cierre completado. Vendedor ' . ($vendedor->name ?? '') . ' liberado automáticamente.',
                 'toast'   => $toast,
             ]);
     }
@@ -397,16 +399,14 @@ class CierreRutaController extends Controller
         $vendedor = User::findOrFail($cierre->vendedor_id);
 
         $vendedor->update([
-            'ventas_bloqueadas' => false,
-            'ventas_bloqueadas_desde' => null,
-            'ventas_bloqueadas_motivo' => null,
+            'ventas_bloqueadas'           => false,
+            'ventas_bloqueadas_desde'     => null,
+            'ventas_bloqueadas_motivo'    => null,
             'ventas_bloqueadas_cierre_id' => null,
         ]);
 
         if ($cierre->estatus === 'pendiente') {
-            $cierre->update([
-                'estatus' => 'liberado',
-            ]);
+            $cierre->update(['estatus' => 'liberado']);
         }
 
         return redirect()
