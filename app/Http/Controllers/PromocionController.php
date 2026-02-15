@@ -9,48 +9,85 @@ use Illuminate\Support\Facades\DB;
 
 class PromocionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $promociones = Promocion::with('productos')
-            ->withCount('productos')
-            ->latest()
-            ->paginate(10);
+        $hoy = now()->toDateString();
 
-        return view('promociones.index', compact('promociones'));
+        // ── Stats ──────────────────────────────────────────────
+        $statsTotal    = Promocion::count();
+        $statsVigentes = Promocion::where('activo', true)
+            ->where(fn($q) => $q->whereNull('fecha_fin')->orWhereDate('fecha_fin', '>=', $hoy))
+            ->where(fn($q) => $q->whereNull('fecha_inicio')->orWhereDate('fecha_inicio', '<=', $hoy))
+            ->count();
+        $statsProximas = Promocion::where('activo', true)
+            ->whereDate('fecha_inicio', '>', $hoy)
+            ->count();
+        $statsExpiradas = Promocion::whereDate('fecha_fin', '<', $hoy)->count();
+
+        // ── Filtros ────────────────────────────────────────────
+        $query = Promocion::with('productos')->latest();
+
+        if ($request->filled('buscar')) {
+            $query->where('nombre', 'like', '%'.$request->buscar.'%');
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('activo', $request->estado === 'activo');
+        }
+
+        if ($request->filled('vigencia')) {
+            match ($request->vigencia) {
+                'vigente'  => $query->where('activo', true)
+                    ->where(fn($q) => $q->whereNull('fecha_inicio')->orWhereDate('fecha_inicio', '<=', $hoy))
+                    ->where(fn($q) => $q->whereNull('fecha_fin')->orWhereDate('fecha_fin', '>=', $hoy)),
+                'proxima'  => $query->whereDate('fecha_inicio', '>', $hoy),
+                'expirada' => $query->whereDate('fecha_fin', '<', $hoy),
+                default    => null,
+            };
+        }
+
+        $promociones = $query->paginate(15)->withQueryString();
+
+        return view('promociones.index', compact(
+            'promociones',
+            'statsTotal',
+            'statsVigentes',
+            'statsProximas',
+            'statsExpiradas'
+        ));
     }
 
     public function create()
     {
-        $productos = Producto::where('activo', true)->get();
+        $productos = Producto::where('activo', true)->orderBy('nombre')->get();
         return view('promociones.create', compact('productos'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'nombre' => 'required|string|max:255',
-            'descripcion' => 'nullable|string|max:255',
-            'precio_promocional' => 'required|numeric|min:0',
-            'fecha_inicio' => 'nullable|date',
-            'fecha_fin' => 'nullable|date|after_or_equal:fecha_inicio',
-            'productos' => 'required|array',
-            'productos.*.cantidad' => 'required|integer|min:1',
+            'nombre'              => 'required|string|max:255',
+            'descripcion'         => 'nullable|string|max:255',
+            'precio_promocional'  => 'required|numeric|min:0',
+            'fecha_inicio'        => 'nullable|date',
+            'fecha_fin'           => 'nullable|date|after_or_equal:fecha_inicio',
+            'productos'           => 'required|array',
+            'productos.*.cantidad'=> 'required|integer|min:1',
         ]);
 
         $promocion = Promocion::create([
-            'nombre' => $request->nombre,
+            'nombre'      => $request->nombre,
             'descripcion' => $request->descripcion,
-            'precio' => $request->precio_promocional,
-            'fecha_inicio' => $request->fecha_inicio,
-            'fecha_fin' => $request->fecha_fin,
-            'activo' => true,
+            'precio'      => $request->precio_promocional,
+            'fecha_inicio'=> $request->fecha_inicio,
+            'fecha_fin'   => $request->fecha_fin,
+            'activo'      => true,
         ]);
 
         $datosProductos = [];
         foreach ($request->productos as $id => $data) {
             $datosProductos[$id] = ['cantidad' => $data['cantidad']];
         }
-
         $promocion->productos()->sync($datosProductos);
 
         return redirect()->route('promociones.index')->with('success', 'Promoción creada con éxito.');
@@ -58,72 +95,62 @@ class PromocionController extends Controller
 
     public function edit(Promocion $promocion)
     {
-        $productos = Producto::where('activo', true)->get();
-
-        // clave = producto_id, valor = cantidad
+        $productos = Producto::where('activo', true)->orderBy('nombre')->get();
         $productosSeleccionados = $promocion->productos->pluck('pivot.cantidad', 'id')->toArray();
-
         return view('promociones.edit', compact('promocion', 'productos', 'productosSeleccionados'));
     }
 
     public function update(Request $request, Promocion $promocion)
     {
         $request->validate([
-            'nombre' => 'required|string|max:100',
-            'descripcion' => 'nullable|string|max:255',
-            'precio' => 'required|numeric|min:0',
-            'fecha_inicio' => 'nullable|date',
-            'fecha_fin' => 'nullable|date|after_or_equal:fecha_inicio',
-            'productos' => 'required|array',
-            'productos.*.cantidad' => 'required|integer|min:1',
+            'nombre'              => 'required|string|max:255',
+            'descripcion'         => 'nullable|string|max:255',
+            'precio'              => 'required|numeric|min:0',
+            'fecha_inicio'        => 'nullable|date',
+            'fecha_fin'           => 'nullable|date|after_or_equal:fecha_inicio',
+            'productos'           => 'required|array',
+            'productos.*.cantidad'=> 'required|integer|min:1',
         ]);
 
         $promocion->update([
-            'nombre' => $request->nombre,
+            'nombre'      => $request->nombre,
             'descripcion' => $request->descripcion,
-            'precio' => $request->precio,
-            'fecha_inicio' => $request->fecha_inicio,
-            'fecha_fin' => $request->fecha_fin,
+            'precio'      => $request->precio,
+            'fecha_inicio'=> $request->fecha_inicio,
+            'fecha_fin'   => $request->fecha_fin,
         ]);
 
         $datosProductos = [];
         foreach ($request->productos as $id => $data) {
             $datosProductos[$id] = ['cantidad' => $data['cantidad']];
         }
-
         $promocion->productos()->sync($datosProductos);
 
         return redirect()->route('promociones.index')->with('success', 'Promoción actualizada.');
     }
 
     public function destroy(Promocion $promocion)
-{
-    $tieneVentas = DB::table('venta_promociones')
-        ->where('promocion_id', $promocion->id)
-        ->exists();
+    {
+        $tieneVentas = DB::table('venta_promociones')
+            ->where('promocion_id', $promocion->id)
+            ->exists();
 
-    if ($tieneVentas) {
-        // ✅ Solo inactivar (NO quitar productos)
-        $promocion->activo = false;
-        $promocion->save();
+        if ($tieneVentas) {
+            $promocion->update(['activo' => false]);
+            return redirect()->route('promociones.index')
+                ->with('error', 'No se puede eliminar: la promoción ya fue usada en ventas. Se inactivó en su lugar.');
+        }
 
-        return redirect()
-            ->route('promociones.index')
-            ->with('error', 'No se puede eliminar: la promoción ya fue utilizada en ventas. Se inactivó en su lugar.');
+        $promocion->productos()->detach();
+        $promocion->delete();
+
+        return redirect()->route('promociones.index')->with('success', 'Promoción eliminada.');
     }
-
-    // ✅ Si no tiene ventas, ahora sí se elimina completamente
-    $promocion->productos()->detach();
-    $promocion->delete();
-
-    return redirect()->route('promociones.index')->with('success', 'Promoción eliminada.');
-}
 
     public function toggle(Promocion $promocion)
     {
-        $promocion->activo = ! (bool) $promocion->activo;
+        $promocion->activo = !(bool) $promocion->activo;
         $promocion->save();
-
         return redirect()->route('promociones.index')->with('success', 'Estado actualizado.');
     }
 }

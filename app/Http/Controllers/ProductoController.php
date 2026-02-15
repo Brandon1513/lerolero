@@ -13,42 +13,82 @@ use Illuminate\Support\Facades\DB;
 
 class ProductoController extends Controller
 {
-    public function index()
+    public function index(Request $request)
 {
-    $productos = Producto::with(['categoria', 'unidadMedida'])
-        ->orderBy('nombre')
-        ->get()
-        ->map(function ($p) {
+    // ── Stats globales (independientes del filtro) ────────────
+    $statsTotal        = Producto::count();
+    $statsActivos      = Producto::where('activo', true)->count();
+    $statsInactivos    = Producto::where('activo', false)->count();
+    $statsConMovimientos = DB::table('detalle_ventas')
+        ->distinct('producto_id')->count('producto_id');
 
-            // Validar movimientos en tablas clave
-            $tieneTraslados = DB::getSchemaBuilder()->hasTable('detalle_traslados')
-                ? DB::table('detalle_traslados')->where('producto_id', $p->id)->exists()
-                : false;
+    // ── Query base con filtros ────────────────────────────────
+    $query = Producto::with(['categoria', 'unidadMedida'])
+        ->orderBy('nombre');
 
-            $tieneVentas = DB::getSchemaBuilder()->hasTable('detalle_ventas')
-                ? DB::table('detalle_ventas')->where('producto_id', $p->id)->exists()
-                : false;
-
-            $tieneProducciones = DB::getSchemaBuilder()->hasTable('producciones')
-                ? DB::table('producciones')->where('producto_id', $p->id)->exists()
-                : false;
-
-            $tieneInventario = DB::getSchemaBuilder()->hasTable('inventario_almacen')
-                ? DB::table('inventario_almacen')->where('producto_id', $p->id)->exists()
-                : false;
-
-            $tieneMovimientos = $tieneTraslados || $tieneVentas || $tieneProducciones || $tieneInventario;
-
-            // Si tiene movimientos, no se puede eliminar (solo inactivar)
-            $p->puede_eliminar = !$tieneMovimientos;
-            $p->tiene_movimientos = $tieneMovimientos;
-
-            return $p;
+    // Filtro: búsqueda por nombre o marca
+    if ($buscar = $request->input('buscar')) {
+        $query->where(function ($q) use ($buscar) {
+            $q->where('nombre', 'like', "%{$buscar}%")
+              ->orWhere('marca',  'like', "%{$buscar}%");
         });
+    }
 
-    return view('productos.index', compact('productos'));
+    // Filtro: categoría
+    if ($catId = $request->input('categoria_id')) {
+        $query->where('categoria_id', $catId);
+    }
+
+    // Filtro: estado activo/inactivo
+    if ($estado = $request->input('estado')) {
+        $query->where('activo', $estado === 'activo');
+    }
+
+    // ── Paginado (15 por página, mantiene query params) ───────
+    $productos = $query->paginate(15)->withQueryString();
+
+    // ── Enriquecer con flags de movimientos (por lote) ───────
+    // Solo consultamos los ids de la página actual
+    $idsEnPagina = $productos->pluck('id')->toArray();
+
+    $idsConVentas = DB::table('detalle_ventas')
+        ->whereIn('producto_id', $idsEnPagina)
+        ->distinct()->pluck('producto_id')->flip()->toArray();
+
+    $idsConTraslados = DB::table('detalle_traslado')
+        ->whereIn('producto_id', $idsEnPagina)
+        ->distinct()->pluck('producto_id')->flip()->toArray();
+
+    $idsConInventario = DB::table('inventario_almacen')
+        ->whereIn('producto_id', $idsEnPagina)
+        ->distinct()->pluck('producto_id')->flip()->toArray();
+
+    $productos->getCollection()->transform(function ($p) use (
+        $idsConVentas, $idsConTraslados, $idsConInventario
+    ) {
+        $tieneMovimientos = isset($idsConVentas[$p->id])
+            || isset($idsConTraslados[$p->id])
+            || isset($idsConInventario[$p->id]);
+
+        $p->tiene_movimientos = $tieneMovimientos;
+        $p->puede_eliminar    = !$tieneMovimientos;
+
+        return $p;
+    });
+
+    // ── Categorías para el filtro ─────────────────────────────
+    $categorias = \App\Models\Categoria::where('activo', true)
+        ->orderBy('nombre')->get();
+
+    return view('productos.index', compact(
+        'productos',
+        'categorias',
+        'statsTotal',
+        'statsActivos',
+        'statsInactivos',
+        'statsConMovimientos'
+    ));
 }
-
 
     public function create()
     {

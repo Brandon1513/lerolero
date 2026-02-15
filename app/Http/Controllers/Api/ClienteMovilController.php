@@ -110,88 +110,117 @@ class ClienteMovilController extends Controller
     /**
      * Historial de ventas del cliente con relaciones.
      */
-    public function ventas($id)
-    {
-        $cliente = Cliente::findOrFail($id);
+   public function ventas($id)
+{
+    $cliente = Cliente::findOrFail($id);
 
-        $ventas = $cliente->ventas()
-            ->with([
-                'detalles.producto',
-                'rechazos.producto',
-                'cliente',
-                'pagos', // << importante
-            ])
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
-            ->get();
+    $ventas = $cliente->ventas()
+        ->with([
+            'detalles.producto',
+            'cliente',
+            'pagos',
+        ])
+        ->orderByDesc('fecha')
+        ->orderByDesc('id')
+        ->get();
 
-        $payload = $ventas->map(function ($v) {
-            // Métodos de pago usados
-            $metodos = $v->pagos->pluck('metodo')->filter()->unique()->values()->all();
+    // ✅ Cargar TODOS los cierres del vendedor autenticado de una sola query
+    // Los cambios viven en cierre_rutas.cambios (JSON) porque los
+    // rechazos_temporales se borran al cuadrar el cierre
+    $vendedorId = auth()->id();
 
-            // Determina método "principal"
-            $metodoPago = null;
-            if ($v->es_credito && (float)$v->saldo_pendiente > 0) {
-                $metodoPago = 'credito';
-            } elseif (count($metodos) === 0) {
-                // si no hubo registros en pagos, asume efectivo (contado) o crédito saldado
-                $metodoPago = $v->es_credito ? 'credito' : 'efectivo';
-            } elseif (count($metodos) === 1) {
-                $metodoPago = $metodos[0]; // efectivo|transferencia|tarjeta
-            } else {
-                $metodoPago = 'mixto';
+    $cierres = \App\Models\CierreRuta::where('vendedor_id', $vendedorId)
+        ->whereNotNull('cambios')
+        ->get();
+
+    // Construir índice: venta_id => [cambios]
+    // para buscar O(1) dentro del loop
+    $cambiosPorVenta = [];
+    foreach ($cierres as $cierre) {
+        $todosCambios = $cierre->cambios;
+        if (is_string($todosCambios)) {
+            $todosCambios = json_decode($todosCambios, true) ?? [];
+        }
+        foreach ((array) $todosCambios as $c) {
+            $vid = (int) ($c['venta_id'] ?? 0);
+            if ($vid > 0) {
+                $cambiosPorVenta[$vid][] = [
+                    'nombre'          => $c['nombre'] ?? null,
+                    'cantidad'        => (float) ($c['cantidad'] ?? 0),
+                    'motivo'          => $c['motivo'] ?? null,
+                    'lote'            => $c['lote'] ?? null,
+                    'fecha_caducidad' => $c['fecha_caducidad'] ?? null,
+                    'sustituciones'   => array_map(fn($s) => [
+                        'nombre'          => $s['nombre'] ?? null,
+                        'cantidad'        => (float) ($s['cantidad'] ?? 0),
+                        'lote'            => $s['lote'] ?? null,
+                        'fecha_caducidad' => $s['fecha_caducidad'] ?? null,
+                    ], $c['sustituciones'] ?? []),
+                ];
             }
-
-            // Una referencia útil (transferencia/tarjeta) si existe
-            $ref = optional(
-                $v->pagos->firstWhere('metodo', 'transferencia')
-                ?? $v->pagos->firstWhere('metodo', 'tarjeta')
-            )->referencia ?? $v->nota_pago;
-
-            // Números como float para la app
-            $total          = (float) $v->total;
-            $totalPagado    = (float) ($v->total_pagado ?? $v->pagos->sum('monto'));
-            $saldoPendiente = max(0, (float) ($v->saldo_pendiente ?? ($total - $totalPagado)));
-
-            // Estado consistente con el saldo
-            $estado = $saldoPendiente > 0
-                ? ($v->es_credito ? 'credito' : 'parcial')
-                : 'pagada';
-
-            return [
-                'id'                => $v->id,
-                'fecha'             => optional($v->fecha)->toDateTimeString(),
-                'total'             => $total,
-                'observaciones'     => $v->observaciones,
-
-                'estado'            => $estado,
-                'es_credito'        => (bool) $v->es_credito,
-                'total_pagado'      => $totalPagado,
-                'saldo_pendiente'   => $saldoPendiente,
-                'fecha_vencimiento' => optional($v->fecha_vencimiento)->toDateString(),
-                'nota_pago'         => $ref,
-                'metodo_pago'       => $metodoPago,
-
-                // Relaciones (tal como las espera tu modal)
-                'cliente'  => ['id' => $v->cliente->id, 'nombre' => $v->cliente->nombre],
-                'detalles' => $v->detalles->map(fn($d) => [
-                    'producto'        => ['id' => $d->producto_id, 'nombre' => optional($d->producto)->nombre],
-                    'cantidad'        => (float) $d->cantidad,
-                    'precio_unitario' => (float) $d->precio_unitario,
-                    'subtotal'        => (float) $d->subtotal,
-                    'lote'            => $d->lote,
-                    'fecha_caducidad' => $d->fecha_caducidad,
-                ])->values(),
-                'rechazos' => $v->rechazos->map(fn($r) => [
-                    'producto'        => ['id' => $r->producto_id, 'nombre' => optional($r->producto)->nombre],
-                    'cantidad'        => (float) $r->cantidad,
-                    'motivo'          => $r->motivo,
-                    'lote'            => $r->lote,
-                    'fecha_caducidad' => $r->fecha_caducidad,
-                ])->values(),
-            ];
-        })->values();
-
-        return response()->json($payload);
+        }
     }
+
+    $payload = $ventas->map(function ($v) use ($cambiosPorVenta) {
+
+        $metodos    = $v->pagos->pluck('metodo')->filter()->unique()->values()->all();
+        $metodoPago = null;
+        if ($v->es_credito && (float)$v->saldo_pendiente > 0) {
+            $metodoPago = 'credito';
+        } elseif (count($metodos) === 0) {
+            $metodoPago = $v->es_credito ? 'credito' : 'efectivo';
+        } elseif (count($metodos) === 1) {
+            $metodoPago = $metodos[0];
+        } else {
+            $metodoPago = 'mixto';
+        }
+
+        $ref = optional(
+            $v->pagos->firstWhere('metodo', 'transferencia')
+            ?? $v->pagos->firstWhere('metodo', 'tarjeta')
+        )->referencia ?? $v->nota_pago;
+
+        $total          = (float) $v->total;
+        $totalPagado    = (float) ($v->total_pagado ?? $v->pagos->sum('monto'));
+        $saldoPendiente = max(0, (float) ($v->saldo_pendiente ?? ($total - $totalPagado)));
+
+        $estado = $saldoPendiente > 0
+            ? ($v->es_credito ? 'credito' : 'parcial')
+            : 'pagada';
+
+        // ✅ Cambios del cierre (no de rechazos_temporales que ya fueron borrados)
+        $rechazos = $cambiosPorVenta[$v->id] ?? [];
+
+        return [
+            'id'                => $v->id,
+            'fecha'             => optional($v->fecha)->toDateTimeString(),
+            'total'             => $total,
+            'observaciones'     => $v->observaciones,
+            'estado'            => $estado,
+            'es_credito'        => (bool) $v->es_credito,
+            'total_pagado'      => $totalPagado,
+            'saldo_pendiente'   => $saldoPendiente,
+            'fecha_vencimiento' => optional($v->fecha_vencimiento)->toDateString(),
+            'nota_pago'         => $ref,
+            'metodo_pago'       => $metodoPago,
+
+            'cliente'  => ['id' => $v->cliente->id, 'nombre' => $v->cliente->nombre],
+
+            'detalles' => $v->detalles->map(fn($d) => [
+                'producto_id'     => $d->producto_id,
+                'producto'        => ['id' => $d->producto_id, 'nombre' => optional($d->producto)->nombre],
+                'cantidad'        => (float) $d->cantidad,
+                'precio_unitario' => (float) $d->precio_unitario,
+                'subtotal'        => (float) $d->subtotal,
+                'lote'            => $d->lote,
+                'fecha_caducidad' => $d->fecha_caducidad,
+            ])->values(),
+
+            // ✅ Cambios leídos del JSON del cierre de ruta
+            'rechazos' => $rechazos,
+        ];
+    })->values();
+
+    return response()->json($payload);
+}
 }

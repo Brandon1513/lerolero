@@ -21,10 +21,9 @@ class CierreRutaMovilController extends Controller
         try {
             $result = DB::transaction(function () use ($vendedor, $hoy) {
 
-                // ✅ Evita duplicados (y ayuda contra doble tap)
                 $yaExiste = CierreRuta::where('vendedor_id', $vendedor->id)
                     ->whereDate('fecha', $hoy)
-                    ->where('estatus', 'pendiente') // ✅ solo impide si hay uno pendiente
+                    ->where('estatus', 'pendiente')
                     ->lockForUpdate()
                     ->exists();
 
@@ -35,7 +34,6 @@ class CierreRutaMovilController extends Controller
                     ];
                 }
 
-                // Obtener almacén del vendedor
                 $almacenVendedor = Almacen::where('tipo', 'vendedor')
                     ->where('user_id', $vendedor->id)
                     ->first();
@@ -47,34 +45,44 @@ class CierreRutaMovilController extends Controller
                     ];
                 }
 
-                // 1) Inventario final (con lote y caducidad)
+                // 1) Inventario final
                 $inventarioFinal = Inventario::where('almacen_id', $almacenVendedor->id)
                     ->get()
-                    ->map(function ($item) {
-                        return [
-                            'producto_id'     => $item->producto_id,
-                            'nombre'          => optional($item->producto)->nombre,
-                            'cantidad'        => $item->cantidad,
-                            'lote'            => $item->lote,
-                            'fecha_caducidad' => $item->fecha_caducidad,
-                        ];
-                    })->toArray();
-
-                // 2) Cambios desde rechazos (solo pendientes)
-                $rechazos = RechazoTemporal::where('vendedor_id', $vendedor->id)
-                    ->whereNull('venta_id') // ✅ recomendado
-                    ->get();
-
-                $cambios = $rechazos->map(function ($item) {
-                    return [
+                    ->map(fn($item) => [
                         'producto_id'     => $item->producto_id,
                         'nombre'          => optional($item->producto)->nombre,
                         'cantidad'        => $item->cantidad,
-                        'motivo'          => $item->motivo,
                         'lote'            => $item->lote,
                         'fecha_caducidad' => $item->fecha_caducidad,
-                    ];
-                })->toArray();
+                    ])->toArray();
+
+                // 2) ✅ FIX: Cambios CON venta_id y sustituciones
+                // Antes filtraba whereNull('venta_id') → perdía los cambios vinculados
+                // Ahora incluye TODOS los rechazos del vendedor del día
+                $rechazos = RechazoTemporal::where('vendedor_id', $vendedor->id)
+                    ->with(['producto', 'venta.cliente', 'detalles.producto'])
+                    ->get();
+
+                $cambios = $rechazos->map(fn($r) => [
+                    'producto_id'     => $r->producto_id,
+                    'nombre'          => optional($r->producto)->nombre,
+                    'cantidad'        => $r->cantidad,
+                    'motivo'          => $r->motivo,
+                    'lote'            => $r->lote,
+                    'fecha_caducidad' => $r->fecha_caducidad,
+                    // ✅ Incluir venta_id para poder filtrar en historial
+                    'venta_id'        => $r->venta_id,
+                    'cliente_id'      => $r->venta?->cliente_id,
+                    'cliente_nombre'  => $r->venta?->cliente?->nombre ?? 'Sin cliente',
+                    // ✅ Incluir sustituciones del rechazo
+                    'sustituciones'   => $r->detalles->map(fn($d) => [
+                        'producto_id'     => $d->producto_id,
+                        'nombre'          => optional($d->producto)->nombre,
+                        'cantidad'        => $d->cantidad,
+                        'lote'            => $d->lote,
+                        'fecha_caducidad' => $d->fecha_caducidad,
+                    ])->toArray(),
+                ])->toArray();
 
                 // 3) Ventas del día
                 $ventas = Venta::where('vendedor_id', $vendedor->id)
@@ -85,16 +93,16 @@ class CierreRutaMovilController extends Controller
 
                 // 4) Crear cierre
                 $cierre = CierreRuta::create([
-                    'vendedor_id'         => $vendedor->id,
-                    'fecha'               => $hoy,
-                    'total_ventas'        => $total,
-                    'inventario_inicial'  => [],
-                    'inventario_final'    => $inventarioFinal,
-                    'cambios'             => $cambios,
-                    'estatus'             => 'pendiente',
+                    'vendedor_id'        => $vendedor->id,
+                    'fecha'              => $hoy,
+                    'total_ventas'       => $total,
+                    'inventario_inicial' => [],
+                    'inventario_final'   => $inventarioFinal,
+                    'cambios'            => $cambios,
+                    'estatus'            => 'pendiente',
                 ]);
 
-                // 5) Bloquear ventas del vendedor
+                // 5) Bloquear vendedor
                 $vendedor->update([
                     'ventas_bloqueadas'           => true,
                     'ventas_bloqueadas_desde'     => now(),
@@ -105,8 +113,8 @@ class CierreRutaMovilController extends Controller
                 return [
                     'status' => 201,
                     'body'   => [
-                        'message' => 'Solicitud enviada correctamente. Ventas bloqueadas hasta liberación.',
-                        'cierre_id' => $cierre->id,
+                        'message'           => 'Solicitud enviada correctamente. Ventas bloqueadas hasta liberación.',
+                        'cierre_id'         => $cierre->id,
                         'ventas_bloqueadas' => true,
                     ],
                 ];
@@ -117,13 +125,12 @@ class CierreRutaMovilController extends Controller
         } catch (\Throwable $e) {
             \Log::error('Error al solicitar cierre de ruta', [
                 'vendedor_id' => $vendedor->id,
-                'fecha' => $hoy,
-                'error' => $e->getMessage(),
+                'error'       => $e->getMessage(),
             ]);
 
             return response()->json([
                 'message' => 'Error al solicitar cierre. Intenta de nuevo.',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }

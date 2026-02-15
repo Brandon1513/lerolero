@@ -85,13 +85,57 @@ class VentaController extends Controller
         // ✅ NUEVO: BLOQUEO DE VENTAS POR CIERRE DE RUTA
         // =========================================================
         if (!empty($vendedor->ventas_bloqueadas)) {
-            return response()->json([
-                'message'  => 'Ventas bloqueadas. Solicita liberación al administrador para continuar.',
-                'motivo'   => $vendedor->ventas_bloqueadas_motivo,
-                'desde'    => optional($vendedor->ventas_bloqueadas_desde)->toDateTimeString(),
-                'cierre_id'=> $vendedor->ventas_bloqueadas_cierre_id,
-            ], 423); // Locked
+
+        // ✅ AUTO-LIBERAR si el cierre que causó el bloqueo es de un día anterior
+        $cierreId  = $vendedor->ventas_bloqueadas_cierre_id;
+        $bloqueado = true;
+
+        if ($cierreId) {
+            $cierrePendiente = \App\Models\CierreRuta::find($cierreId);
+
+            if ($cierrePendiente) {
+                $fechaCierre = \Carbon\Carbon::parse($cierrePendiente->fecha)->toDateString();
+                $hoy         = now()->toDateString();
+
+                // Si el cierre pendiente es de AYER o antes → liberar automáticamente
+                if ($fechaCierre < $hoy) {
+                    $vendedor->update([
+                        'ventas_bloqueadas'           => false,
+                        'ventas_bloqueadas_desde'     => null,
+                        'ventas_bloqueadas_motivo'    => null,
+                        'ventas_bloqueadas_cierre_id' => null,
+                    ]);
+                    $bloqueado = false;
+
+                    \Log::info("Vendedor #{$vendedor->id} auto-liberado: cierre #{$cierreId} es del {$fechaCierre}, hoy es {$hoy}");
+                }
+            } else {
+                // El cierre ya no existe (fue eliminado) → liberar
+                $vendedor->update([
+                    'ventas_bloqueadas'           => false,
+                    'ventas_bloqueadas_desde'     => null,
+                    'ventas_bloqueadas_motivo'    => null,
+                    'ventas_bloqueadas_cierre_id' => null,
+                ]);
+                $bloqueado = false;
+
+                \Log::info("Vendedor #{$vendedor->id} auto-liberado: cierre #{$cierreId} ya no existe");
+            }
         }
+
+        if ($bloqueado) {
+            return response()->json([
+                'message'   => 'Ventas bloqueadas. Solicita liberación al administrador para continuar.',
+                'motivo'    => $vendedor->ventas_bloqueadas_motivo,
+                'desde'     => optional($vendedor->ventas_bloqueadas_desde)->toDateTimeString(),
+                'cierre_id' => $vendedor->ventas_bloqueadas_cierre_id,
+            ], 423);
+        }
+
+        // Si llegamos aquí, el vendedor fue auto-liberado → continuar con la venta
+        // Refrescar el modelo para tener los datos actualizados
+        $vendedor->refresh();
+    }
 
         // ✅ MEJORA 1: Validar que el vendedor tenga almacén asignado
         $almacenId = optional($vendedor->almacen)->id ?? $vendedor->almacen_id;

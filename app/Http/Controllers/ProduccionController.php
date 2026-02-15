@@ -12,16 +12,47 @@ use App\Models\DetalleTraslado;
 
 class ProduccionController extends Controller
 {
-    public function index()
-    {
-        $producciones = Produccion::with('producto', 'usuario')->orderBy('fecha', 'desc')->paginate(10);
-        return view('producciones.index', compact('producciones'));
-    }
-    public function create()
+    public function index(Request $request)
 {
-    $productos = Producto::orderBy('nombre')->get();
-    return view('producciones.create', compact('productos'));
+    $hoy = now()->toDateString();
+    $mes = now()->startOfMonth()->toDateString();
+
+    // ── Stats ─────────────────────────────────────────────────
+    $statsTotal         = \App\Models\Produccion::count();
+    $statsHoy           = \App\Models\Produccion::whereDate('fecha', $hoy)->count();
+    $statsUnidadesHoy   = \App\Models\Produccion::whereDate('fecha', $hoy)->sum('cantidad');
+    $statsUnidadesMes   = \App\Models\Produccion::whereDate('fecha', '>=', $mes)->sum('cantidad');
+
+    // ── Query con filtros ─────────────────────────────────────
+    $producciones = Produccion::with(['producto', 'usuario'])
+        ->when($request->filled('fecha_inicio'),
+            fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
+        ->when($request->filled('fecha_fin'),
+            fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
+        ->when($request->filled('buscar'), function ($q) use ($request) {
+            $q->whereHas('producto', fn($p) =>
+                $p->where('nombre', 'like', '%'.$request->buscar.'%')
+            );
+        })
+        ->orderBy('fecha', 'desc')
+        ->orderBy('id', 'desc')
+        ->paginate(15)
+        ->withQueryString();
+
+    return view('producciones.index', compact(
+        'producciones',
+        'statsTotal',
+        'statsHoy',
+        'statsUnidadesHoy',
+        'statsUnidadesMes'
+    ));
 }
+
+    public function create()
+    {
+        $productos = Producto::orderBy('nombre')->get();
+        return view('producciones.create', compact('productos'));
+    }
 
 
 

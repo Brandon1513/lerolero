@@ -142,21 +142,23 @@ public function store(Request $request)
 
 
     public function panel(Request $request)
-    {
-        $vendedores = \App\Models\User::role('vendedor')->get();
+{
+    $vendedores = \App\Models\User::role('vendedor')->get();
 
-        $ventas = Venta::with('cliente', 'vendedor')
-            ->when($request->vendedor_id, fn($q) => $q->where('vendedor_id', $request->vendedor_id))
-            ->when($request->fecha_inicio, fn($q) =>
-                $q->whereDate('fecha', '>=', $request->fecha_inicio))
-            ->when($request->fecha_fin, fn($q) =>
-                $q->whereDate('fecha', '<=', $request->fecha_fin))
-            ->orderByDesc('fecha')
-            ->paginate(10);
+    // ── Query base con filtros ──────────────────────────────────
+    $query = Venta::with('cliente', 'vendedor')
+        ->when($request->vendedor_id, fn($q) => $q->where('vendedor_id', $request->vendedor_id))
+        ->when($request->fecha_inicio, fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
+        ->when($request->fecha_fin,    fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
+        ->orderByDesc('fecha');
 
-        $totalGeneral = $ventas->sum('total');
+    // ✅ Total calculado ANTES de paginar (suma real de todos los resultados filtrados)
+    $totalGeneral = (clone $query)->sum('total');
 
-        return view('ventas.panel', compact('ventas', 'vendedores', 'totalGeneral'));
-    }
+    $ventas = $query->paginate(15)->withQueryString();
+
+    return view('ventas.panel', compact('ventas', 'vendedores', 'totalGeneral'));
+}
+
 
 }

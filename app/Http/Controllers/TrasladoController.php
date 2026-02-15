@@ -13,25 +13,53 @@ use Illuminate\Support\Facades\DB;
 class TrasladoController extends Controller
 {
 public function index(Request $request)
-    {
-        $traslados = Traslado::with(['origen', 'destino'])
-            ->when($request->filled('fecha_inicio'), fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
-            ->when($request->filled('fecha_fin'), fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
-            ->when($request->filled('destino_id'), fn($q) => $q->where('almacen_destino_id', $request->destino_id))
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+{
+    // ── Stats globales ────────────────────────────────────────
+    $hoy    = now()->toDateString();
+    $semana = now()->startOfWeek()->toDateString();
 
-        // ✅ bandera por fila
-        $traslados->getCollection()->transform(function ($t) {
-            $t->puede_eliminar = $this->canDeleteTraslado($t);
-            return $t;
-        });
+    $statsTotal = \App\Models\Traslado::count();
 
-        $almacenes = Almacen::where('activo', true)->get();
+    $statsHoy = \App\Models\Traslado::whereDate('fecha', $hoy)->count();
 
-        return view('traslados.index', compact('traslados', 'almacenes'));
-    }
+    $statsSemana = \App\Models\Traslado::whereDate('fecha', '>=', $semana)->count();
+
+    $statsProductosMovidos = \App\Models\DetalleTraslado::whereHas('traslado', fn($q) =>
+        $q->whereDate('fecha', $hoy)
+    )->sum('cantidad');
+
+    // ── Query con filtros ─────────────────────────────────────
+    $traslados = Traslado::with(['origen', 'destino'])
+        ->when($request->filled('fecha_inicio'),
+            fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
+        ->when($request->filled('fecha_fin'),
+            fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
+        ->when($request->filled('origen_id'),
+            fn($q) => $q->where('almacen_origen_id', $request->origen_id))
+        ->when($request->filled('destino_id'),
+            fn($q) => $q->where('almacen_destino_id', $request->destino_id))
+        ->latest('fecha')
+        ->latest('id')
+        ->paginate(15)
+        ->withQueryString();
+
+    // ── Bandera puede_eliminar por fila ───────────────────────
+    $traslados->getCollection()->transform(function ($t) {
+        $t->puede_eliminar = $this->canDeleteTraslado($t);
+        return $t;
+    });
+
+    $almacenes = Almacen::where('activo', true)->orderBy('nombre')->get();
+
+    return view('traslados.index', compact(
+        'traslados',
+        'almacenes',
+        'statsTotal',
+        'statsHoy',
+        'statsSemana',
+        'statsProductosMovidos'
+    ));
+}
 
 
     public function create()
@@ -260,9 +288,9 @@ public function index(Request $request)
         return false;
     }
 
-    public function lotesPorAlmacen($almacenId)
+   public function lotesPorAlmacen($almacenId)
     {
-        $lotes = Inventario::with('producto')
+        $lotes = Inventario::with(['producto.categoria'])
             ->where('almacen_id', $almacenId)
             ->where('cantidad', '>', 0)
             ->whereNotNull('lote')
@@ -274,15 +302,18 @@ public function index(Request $request)
 
         foreach ($lotes as $lote) {
             $agrupado[$lote->producto_id][] = [
-                'lote' => $lote->lote,
+                'lote'            => $lote->lote,
                 'fecha_caducidad' => $lote->fecha_caducidad,
-                'cantidad' => $lote->cantidad,
-                'producto' => $lote->producto->nombre ?? 'Producto',
+                'cantidad'        => $lote->cantidad,
+                'producto'        => $lote->producto->nombre     ?? 'Producto',
+                // ✅ Incluir categoría para agrupar en el frontend
+                'categoria'       => $lote->producto->categoria->nombre ?? 'Sin categoría',
             ];
         }
 
         return response()->json($agrupado);
     }
+
     private function canDeleteTraslado(\App\Models\Traslado $traslado): bool
 {
     $traslado->loadMissing(['origen', 'destino']);

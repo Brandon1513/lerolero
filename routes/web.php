@@ -80,8 +80,12 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
 
     
     //  ALMACENES
-    Route::resource('almacenes', AlmacenController::class);
-    Route::patch('/almacenes/{almacen}/toggle', [AlmacenController::class, 'toggleActivo'])->name('almacenes.toggle');
+    Route::resource('almacenes', AlmacenController::class)
+    ->parameters(['almacenes' => 'almacen']);
+
+    // Esta línea queda igual
+    Route::patch('/almacenes/{almacen}/toggle', [AlmacenController::class, 'toggleActivo'])
+        ->name('almacenes.toggle');
     
     //  TRASLADOS
     Route::resource('traslados', App\Http\Controllers\TrasladoController::class);
