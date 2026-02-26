@@ -106,13 +106,14 @@
 
                                 <div>
                                     <label for="lote" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                        Lote
-                                        <span class="ml-1 text-xs font-normal text-gray-400">opcional</span>
+                                        Lote <span class="text-red-500">*</span>
                                     </label>
                                     <input type="text" name="lote" id="lote"
+                                        required
                                         value="{{ old('lote') }}"
                                         placeholder="Ej. LOTE290525"
-                                        class="w-full px-3 py-2.5 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"/>
+                                        class="w-full px-3 py-2.5 text-sm font-mono border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition
+                                            {{ $errors->has('lote') ? 'border-red-400 bg-red-50' : 'border-gray-300' }}"/>
                                     @error('lote')
                                         <p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>
                                     @enderror
