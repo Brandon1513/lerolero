@@ -19,6 +19,7 @@ class CierreRuta extends Model
         'inventario_final',
         'cambios',
         'traslado_id',
+        'cierre_anterior_id',
         'total_ventas',
         'vendedor_id',
         'fecha'
@@ -26,16 +27,29 @@ class CierreRuta extends Model
 
     protected $casts = [
         'inventario_inicial' => 'array',
-        'inventario_final' => 'array',
-        'cambios' => 'array',
+        'inventario_final'   => 'array',
+        'cambios'            => 'array',
     ];
 
     public function vendedor()
     {
         return $this->belongsTo(User::class, 'vendedor_id');
     }
+
     public function cerradoPor()
     {
         return $this->belongsTo(User::class, 'cerrado_por');
+    }
+
+    // Cierre previo del mismo día (cuando este es una reapertura)
+    public function cierreAnterior()
+    {
+        return $this->belongsTo(CierreRuta::class, 'cierre_anterior_id');
+    }
+
+    // Cierres que tienen este como anterior (reaperturas de este cierre)
+    public function reaperturas()
+    {
+        return $this->hasMany(CierreRuta::class, 'cierre_anterior_id');
     }
 }

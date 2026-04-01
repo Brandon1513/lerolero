@@ -92,6 +92,7 @@
                         <table class="w-full text-sm border border-collapse border-gray-200">
                             <thead class="text-gray-700 bg-gray-100">
                                 <tr>
+                                    <th class="px-4 py-2 border">#</th>
                                     <th class="px-4 py-2 border">Vendedor</th>
                                     <th class="px-4 py-2 border">Fecha</th>
                                     <th class="px-4 py-2 text-right border">Total Ventas</th>
@@ -148,6 +149,20 @@
                                     @endphp
 
                                     <tr class="hover:bg-gray-50">
+                                        {{-- ID + badge reapertura --}}
+                                        <td class="px-4 py-2 text-center border">
+                                            <span class="font-mono text-xs font-semibold text-gray-600">#{{ $cierre->id }}</span>
+                                            @if($cierre->cierre_anterior_id)
+                                                <div class="mt-1">
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-amber-800 bg-amber-100 rounded-full">
+                                                        ↺ Reapertura
+                                                    </span>
+                                                </div>
+                                                <div class="text-[10px] text-gray-400 mt-0.5">
+                                                    ant: #{{ $cierre->cierre_anterior_id }}
+                                                </div>
+                                            @endif
+                                        </td>
                                         <td class="px-4 py-2 border">{{ $cierre->vendedor->name }}</td>
                                         <td class="px-4 py-2 border">{{ \Carbon\Carbon::parse($cierre->fecha)->format('d/m/Y') }}</td>
 

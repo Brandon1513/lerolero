@@ -91,6 +91,13 @@ class CierreRutaMovilController extends Controller
 
                 $total = (float) $ventas->sum('total');
 
+                // Buscar si ya existe un cierre anterior del mismo día
+                $cierreAnterior = CierreRuta::where('vendedor_id', $vendedor->id)
+                    ->whereDate('fecha', $hoy)
+                    ->where('id', '!=', 0) // cualquier cierre previo
+                    ->latest('id')
+                    ->first();
+
                 // 4) Crear cierre
                 $cierre = CierreRuta::create([
                     'vendedor_id'        => $vendedor->id,
@@ -100,6 +107,7 @@ class CierreRutaMovilController extends Controller
                     'inventario_final'   => $inventarioFinal,
                     'cambios'            => $cambios,
                     'estatus'            => 'pendiente',
+                    'cierre_anterior_id' => $cierreAnterior?->id,
                 ]);
 
                 // 5) Bloquear vendedor

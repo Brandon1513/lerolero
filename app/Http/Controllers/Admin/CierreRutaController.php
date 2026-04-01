@@ -20,7 +20,7 @@ class CierreRutaController extends Controller
 {
     public function index(Request $request)
     {
-        $cierres = CierreRuta::with('vendedor', 'cerradoPor')
+        $cierres = CierreRuta::with('vendedor', 'cerradoPor', 'cierreAnterior')
             ->when($request->vendedor_id, fn($q) => $q->where('vendedor_id', $request->vendedor_id))
             ->when($request->fecha_inicio, fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
             ->when($request->fecha_fin, fn($q) => $q->whereDate('fecha', '<=', $request->fecha_fin))
