@@ -117,6 +117,7 @@
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Cliente</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Vendedor</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-right text-gray-500 uppercase">Total</th>
+                            <th class="px-5 py-3 text-xs font-semibold tracking-wide text-center text-gray-500 uppercase">Estado</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-center text-gray-500 uppercase">Acción</th>
                         </tr>
                     </thead>
@@ -164,6 +165,24 @@
                                 {{-- Total --}}
                                 <td class="px-5 py-3.5 text-right">
                                     <span class="font-bold text-gray-900">${{ number_format($venta->total, 2) }}</span>
+                                </td>
+
+                                {{-- Estado --}}
+                                <td class="px-5 py-3.5 text-center">
+                                    @php
+                                        $badge = match($venta->estado) {
+                                            'pagada'  => ['Pagada',  'bg-green-100 text-green-800'],
+                                            'credito' => ['Crédito', 'bg-yellow-100 text-yellow-800'],
+                                            'parcial' => ['Parcial', 'bg-orange-100 text-orange-800'],
+                                            default   => [ucfirst($venta->estado ?? '—'), 'bg-gray-100 text-gray-500'],
+                                        };
+                                    @endphp
+                                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-bold rounded-full {{ $badge[1] }}">
+                                        {{ $badge[0] }}
+                                    </span>
+                                    @if(($venta->saldo_pendiente ?? 0) > 0)
+                                        <div class="text-xs text-red-500 mt-0.5">Debe ${{ number_format($venta->saldo_pendiente, 2) }}</div>
+                                    @endif
                                 </td>
 
                                 {{-- Acción --}}

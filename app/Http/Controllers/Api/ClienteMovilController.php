@@ -184,8 +184,9 @@ class ClienteMovilController extends Controller
         $totalPagado    = (float) ($v->total_pagado ?? $v->pagos->sum('monto'));
         $saldoPendiente = max(0, (float) ($v->saldo_pendiente ?? ($total - $totalPagado)));
 
+        // Si tiene saldo pendiente: "parcial" si ya hubo algún pago, "credito" si no hubo ninguno
         $estado = $saldoPendiente > 0
-            ? ($v->es_credito ? 'credito' : 'parcial')
+            ? ($totalPagado > 0 ? 'parcial' : 'credito')
             : 'pagada';
 
         // ✅ Cambios del cierre (no de rechazos_temporales que ya fueron borrados)

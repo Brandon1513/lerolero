@@ -41,7 +41,9 @@ class User extends Authenticatable
     }
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
+        'email_verified_at'        => 'datetime',
+        'ventas_bloqueadas'        => 'boolean',
+        'ventas_bloqueadas_desde'  => 'datetime',
     ];
     public function almacen()
     {

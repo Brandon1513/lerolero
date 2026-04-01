@@ -334,6 +334,117 @@
         </div>
 
 
+        {{-- ── ESTADO DE PAGO Y ABONOS ── --}}
+        <div class="overflow-hidden bg-white border border-gray-200 shadow-sm rounded-xl">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50">
+                <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                    Estado de pago
+                </h3>
+                @php
+                    $estadoLabel = match($venta->estado) {
+                        'pagada'  => ['texto' => 'Pagada',  'clase' => 'bg-green-100 text-green-800'],
+                        'credito' => ['texto' => 'Crédito', 'clase' => 'bg-yellow-100 text-yellow-800'],
+                        'parcial' => ['texto' => 'Parcial', 'clase' => 'bg-orange-100 text-orange-800'],
+                        default   => ['texto' => ucfirst($venta->estado ?? 'N/D'), 'clase' => 'bg-gray-100 text-gray-600'],
+                    };
+                @endphp
+                <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-bold rounded-full {{ $estadoLabel['clase'] }}">
+                    {{ $estadoLabel['texto'] }}
+                </span>
+            </div>
+            <div class="p-5 space-y-4">
+                {{-- Tipo de venta y resumen financiero --}}
+                <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div>
+                        <div class="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Tipo</div>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full {{ $venta->es_credito ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800' }}">
+                            {{ $venta->es_credito ? 'Crédito' : 'Contado' }}
+                        </span>
+                    </div>
+                    <div>
+                        <div class="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Total venta</div>
+                        <div class="text-lg font-bold text-gray-900">${{ number_format($venta->total, 2) }}</div>
+                    </div>
+                    <div>
+                        <div class="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Total pagado</div>
+                        <div class="text-lg font-bold text-green-700">${{ number_format($venta->total_pagado ?? $venta->pagos->sum('monto'), 2) }}</div>
+                    </div>
+                    <div>
+                        <div class="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Saldo pendiente</div>
+                        <div class="text-lg font-bold {{ $venta->saldo_pendiente > 0 ? 'text-red-600' : 'text-gray-400' }}">
+                            ${{ number_format($venta->saldo_pendiente ?? 0, 2) }}
+                        </div>
+                    </div>
+                </div>
+
+                @if($venta->es_credito && $venta->fecha_vencimiento)
+                <div class="flex items-center gap-2 px-3 py-2 text-sm border rounded-lg bg-yellow-50 border-yellow-200 text-yellow-800">
+                    <svg class="w-4 h-4 text-yellow-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    Fecha de vencimiento: <strong>{{ \Carbon\Carbon::parse($venta->fecha_vencimiento)->format('d/m/Y') }}</strong>
+                </div>
+                @endif
+
+                {{-- Detalle de pagos/abonos --}}
+                @if($venta->pagos->count() > 0)
+                <div>
+                    <div class="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">Pagos y abonos registrados</div>
+                    <div class="overflow-hidden border border-gray-200 rounded-lg">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 bg-gray-50">
+                                    <th class="px-4 py-2 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">#</th>
+                                    <th class="px-4 py-2 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Método</th>
+                                    <th class="px-4 py-2 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Referencia</th>
+                                    <th class="px-4 py-2 text-xs font-semibold tracking-wide text-right text-gray-500 uppercase">Monto</th>
+                                    <th class="px-4 py-2 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach($venta->pagos as $i => $pago)
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-2.5 text-gray-400 text-xs">{{ $i + 1 }}</td>
+                                    <td class="px-4 py-2.5">
+                                        @php
+                                            $metodoClase = match($pago->metodo) {
+                                                'efectivo'      => 'bg-green-100 text-green-800',
+                                                'transferencia' => 'bg-blue-100 text-blue-800',
+                                                'tarjeta'       => 'bg-purple-100 text-purple-800',
+                                                default         => 'bg-gray-100 text-gray-600',
+                                            };
+                                        @endphp
+                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full {{ $metodoClase }}">
+                                            {{ ucfirst($pago->metodo) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-2.5 text-xs text-gray-500 font-mono">
+                                        {{ $pago->referencia ?? '—' }}
+                                    </td>
+                                    <td class="px-4 py-2.5 text-right font-bold text-gray-900">${{ number_format($pago->monto, 2) }}</td>
+                                    <td class="px-4 py-2.5 text-xs text-gray-400">
+                                        {{ $pago->created_at ? \Carbon\Carbon::parse($pago->created_at)->format('d/m/Y H:i') : '—' }}
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr class="border-t-2 border-green-200 bg-green-50">
+                                    <td colspan="3" class="px-4 py-2 text-sm font-semibold text-right text-green-700">Total pagado:</td>
+                                    <td class="px-4 py-2 font-bold text-right text-green-800">${{ number_format($venta->pagos->sum('monto'), 2) }}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                @else
+                <div class="px-4 py-3 text-sm text-center text-gray-400 border border-gray-100 rounded-lg bg-gray-50">
+                    No hay pagos registrados en esta venta.
+                </div>
+                @endif
+            </div>
+        </div>
+
                 {{-- ── RESUMEN FINAL ── --}}
         <div class="overflow-hidden bg-white border border-gray-200 shadow-sm rounded-xl">
             <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">

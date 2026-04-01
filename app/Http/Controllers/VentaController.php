@@ -132,9 +132,9 @@ public function store(Request $request)
         'detalles.producto',
         'detalles.almacen',
         'rechazos.producto',
-        // Asegúrate de que esta tabla 'rechazos_temporales' tenga la columna almacen_id
         'rechazos.almacen',
-        'promociones.promocion.productos', // 👈 para el desglose
+        'promociones.promocion.productos',
+        'pagos', // 👈 abonos y pagos
     ]);
 
     return view('ventas.show', compact('venta'));

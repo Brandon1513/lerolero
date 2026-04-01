@@ -88,7 +88,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // --------------------------------------------
     Route::get('/categorias', [CategoriaMovilController::class, 'index']);
 
-    Route::post('/rechazos', [RechazoTemporalController::class, 'store']);
+    Route::post('/rechazos', [RechazoTemporalController::class, 'store'])
+        ->middleware('throttle:60,1'); // ✅ Máximo 60 por minuto
+
     // --------------------------------------------
     // 🎁 PROMOCIONES (Consultas - Rate limit normal)
     // --------------------------------------------
@@ -100,32 +102,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // --------------------------------------------
     Route::middleware('throttle:60,1')->group(function () {
         Route::prefix('venta')->group(function () {
-            // ✅ Crear venta: Máximo 60 por minuto (1 por segundo)
             Route::post('/', [VentaController::class, 'store']);
-            
-            // ✅ Abonar: Máximo 60 por minuto
             Route::post('/{venta}/pagos', [VentaController::class, 'abonar']);
         });
     });
+
     // --------------------------------------------
-    // Preventas (CRÍTICO - Rate limit estricto)
+    // 📋 PREVENTAS
     // --------------------------------------------
-    Route::post('/preventas', [\App\Http\Controllers\Api\PreventaController::class, 'store']);
-    // ✅ obtener ticket previo (detalle)
+    Route::post('/preventas', [PreventaController::class, 'store']);
     Route::get('/preventas/{preventa}', [PreventaController::class, 'show']);
-
-    // (opcional) marcar como impresa/reimpresa
     Route::patch('/preventas/{preventa}/printed', [PreventaController::class, 'markPrinted']);
-
-    // (opcional) listar preventas del vendedor
     Route::get('/preventas', [PreventaController::class, 'index']);
-
-
-    // --------------------------------------------
-    // 🔄 RECHAZOS TEMPORALES (Rate limit moderado)
-    // --------------------------------------------
-    Route::post('/rechazos', [RechazoTemporalController::class, 'store'])
-        ->middleware('throttle:60,1'); // ✅ Máximo 60 por minuto
 
     // --------------------------------------------
     // 🗺️ RUTAS Y VISITAS
