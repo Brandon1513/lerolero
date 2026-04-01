@@ -124,18 +124,42 @@ class ClienteMovilController extends Controller
         ->orderByDesc('id')
         ->get();
 
-    // ✅ Cargar TODOS los cierres del vendedor autenticado de una sola query
-    // Los cambios viven en cierre_rutas.cambios (JSON) porque los
-    // rechazos_temporales se borran al cuadrar el cierre
+    // ✅ Cargar rechazos temporales activos (aún no cerrados)
     $vendedorId = auth()->id();
 
+    $ventaIds = $ventas->pluck('id')->toArray();
+
+    $rechazosTemporales = \App\Models\RechazoTemporal::with(['producto:id,nombre', 'detalles.producto:id,nombre'])
+        ->where('vendedor_id', $vendedorId)
+        ->whereIn('venta_id', $ventaIds)
+        ->get();
+
+    // Índice: venta_id => [rechazos temporales]
+    $cambiosPorVenta = [];
+    foreach ($rechazosTemporales as $r) {
+        $vid = (int) $r->venta_id;
+        if ($vid > 0) {
+            $cambiosPorVenta[$vid][] = [
+                'nombre'          => optional($r->producto)->nombre,
+                'cantidad'        => (float) $r->cantidad,
+                'motivo'          => $r->motivo,
+                'lote'            => $r->lote,
+                'fecha_caducidad' => $r->fecha_caducidad,
+                'sustituciones'   => $r->detalles->map(fn($d) => [
+                    'nombre'          => optional($d->producto)->nombre,
+                    'cantidad'        => (float) $d->cantidad,
+                    'lote'            => $d->lote,
+                    'fecha_caducidad' => $d->fecha_caducidad,
+                ])->toArray(),
+            ];
+        }
+    }
+
+    // ✅ Complementar con cierres históricos (rechazos ya procesados)
     $cierres = \App\Models\CierreRuta::where('vendedor_id', $vendedorId)
         ->whereNotNull('cambios')
         ->get();
 
-    // Construir índice: venta_id => [cambios]
-    // para buscar O(1) dentro del loop
-    $cambiosPorVenta = [];
     foreach ($cierres as $cierre) {
         $todosCambios = $cierre->cambios;
         if (is_string($todosCambios)) {
@@ -143,7 +167,8 @@ class ClienteMovilController extends Controller
         }
         foreach ((array) $todosCambios as $c) {
             $vid = (int) ($c['venta_id'] ?? 0);
-            if ($vid > 0) {
+            // Solo agregar si no está ya cubierto por rechazos_temporales
+            if ($vid > 0 && !isset($cambiosPorVenta[$vid])) {
                 $cambiosPorVenta[$vid][] = [
                     'nombre'          => $c['nombre'] ?? null,
                     'cantidad'        => (float) ($c['cantidad'] ?? 0),
@@ -217,7 +242,7 @@ class ClienteMovilController extends Controller
                 'fecha_caducidad' => $d->fecha_caducidad,
             ])->values(),
 
-            // ✅ Cambios leídos del JSON del cierre de ruta
+            // Rechazos: temporales activos primero, históricos del cierre como respaldo
             'rechazos' => $rechazos,
         ];
     })->values();
