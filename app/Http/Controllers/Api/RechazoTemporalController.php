@@ -32,6 +32,9 @@ class RechazoTemporalController extends Controller
         'cambios.*.sustituciones.*.cantidad'        => 'required|numeric|min:0.01',
         'cambios.*.sustituciones.*.lote'            => 'nullable|string|max:255',
         'cambios.*.sustituciones.*.fecha_caducidad' => 'nullable|date',
+
+        // venta asociada (opcional — cuando el rechazo ocurre después de la venta)
+        'venta_id' => 'nullable|exists:ventas,id',
     ]);
 
     $userId = Auth::id();
@@ -70,7 +73,7 @@ class RechazoTemporalController extends Controller
                 'fecha_caducidad' => $cambio['fecha_caducidad'] ?? null,
                 'fecha'           => Carbon::now()->toDateString(),
                 'almacen_id'      => $almacenVendedor->id,
-                'venta_id'        => null,
+                'venta_id'        => $request->input('venta_id'), // ✅ vincular a venta si viene
             ]);
 
             $idsCreados[] = $rechazo->id;
