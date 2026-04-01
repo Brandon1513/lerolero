@@ -328,6 +328,73 @@
                 </div>
             @endif
 
+            {{-- ── RECUADROS GRANDES: TOTAL COBRADO Y SALDO PENDIENTE ── --}}
+            @php
+                $totalCobradoHoy   = (float) ($resumen['cobros_hoy']['total'] ?? 0);
+                $efectivoCobrado   = (float) ($resumen['cobros_hoy']['metodos']['efectivo'] ?? 0);
+                $transferCobrada   = (float) ($resumen['cobros_hoy']['metodos']['transferencia'] ?? 0);
+                $tarjetaCobrada    = (float) ($resumen['cobros_hoy']['metodos']['tarjeta'] ?? 0);
+                $totalPendienteDia = collect($clientesPendientesDia ?? [])->sum('pendiente');
+            @endphp
+
+            <div class="grid grid-cols-1 gap-4 mt-6 md:grid-cols-2">
+                {{-- Total cobrado hoy --}}
+                <div class="p-5 border-2 border-emerald-300 rounded-xl bg-emerald-50">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-semibold tracking-wide text-emerald-700 uppercase">Total cobrado hoy</span>
+                        <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                    </div>
+                    <div class="text-4xl font-bold text-emerald-800">
+                        ${{ number_format($totalCobradoHoy, 2) }}
+                    </div>
+                    <div class="mt-3 space-y-1 text-sm">
+                        <div class="flex justify-between">
+                            <span class="flex items-center gap-1.5 text-emerald-700">
+                                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Efectivo
+                            </span>
+                            <span class="font-semibold text-emerald-900">${{ number_format($efectivoCobrado, 2) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="flex items-center gap-1.5 text-blue-700">
+                                <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500"></span> Transferencia
+                            </span>
+                            <span class="font-semibold text-blue-900">${{ number_format($transferCobrada, 2) }}</span>
+                        </div>
+                        @if($tarjetaCobrada > 0)
+                        <div class="flex justify-between">
+                            <span class="flex items-center gap-1.5 text-purple-700">
+                                <span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-500"></span> Tarjeta
+                            </span>
+                            <span class="font-semibold text-purple-900">${{ number_format($tarjetaCobrada, 2) }}</span>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Saldo pendiente por cobrar --}}
+                @php $hayPendiente = $totalPendienteDia > 0; @endphp
+                <div class="p-5 border-2 {{ $hayPendiente ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50' }} rounded-xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-semibold tracking-wide {{ $hayPendiente ? 'text-red-700' : 'text-gray-500' }} uppercase">
+                            Saldo pendiente por cobrar
+                        </span>
+                        <svg class="w-5 h-5 {{ $hayPendiente ? 'text-red-500' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="text-4xl font-bold {{ $hayPendiente ? 'text-red-700' : 'text-gray-400' }}">
+                        ${{ number_format($totalPendienteDia, 2) }}
+                    </div>
+                    @if($hayPendiente)
+                        <div class="mt-3 text-sm text-red-600">
+                            {{ count($clientesPendientesDia ?? []) }} cliente(s) con saldo a liquidar en próxima visita.
+                        </div>
+                    @else
+                        <div class="mt-3 text-sm text-gray-400">Todos los clientes al corriente.</div>
+                    @endif
+                </div>
+            </div>
+
             {{-- Detalle de pagos (mantener igual) --}}
             <div class="p-4 mt-6 bg-white border rounded-lg" x-data="{ open:false }">
                 <div class="flex items-center justify-between">
@@ -548,18 +615,39 @@
         {{-- FORM CIERRE (mantener igual) --}}
         @if ($cierre->estatus == 'pendiente')
             @php
-                $efectivoEsperadoHoy = (float) ($resumen['cobros_hoy']['metodos']['efectivo'] ?? 0);
+                $efectivoEsperadoHoy  = (float) ($resumen['cobros_hoy']['metodos']['efectivo'] ?? 0);
+                $totalCobradoCierre   = (float) ($resumen['cobros_hoy']['total'] ?? 0);
+                $transferEsperada     = (float) ($resumen['cobros_hoy']['metodos']['transferencia'] ?? 0);
+                $tarjetaEsperada      = (float) ($resumen['cobros_hoy']['metodos']['tarjeta'] ?? 0);
             @endphp
 
             <div class="p-6 space-y-4 bg-white rounded-lg shadow">
                 <h3 class="text-lg font-bold text-gray-700">Finalizar Cierre de Ruta</h3>
 
-                <div class="p-4 text-sm text-blue-800 rounded bg-blue-50">
-                    <strong>Efectivo esperado (cobrado hoy):</strong>
-                    ${{ number_format($efectivoEsperadoHoy, 2) }}
-                    <span class="block mt-1 text-xs text-blue-700">
-                        *Este es el monto recomendado para cuadrar el efectivo.
-                    </span>
+                <div class="p-4 text-sm rounded bg-blue-50 border border-blue-200 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-semibold text-blue-800">Total cobrado hoy:</span>
+                        <span class="text-lg font-bold text-blue-900">${{ number_format($totalCobradoCierre, 2) }}</span>
+                    </div>
+                    <div class="border-t border-blue-200 pt-2 space-y-1">
+                        <div class="flex justify-between text-blue-700">
+                            <span>Efectivo (entregar físicamente):</span>
+                            <span class="font-semibold">${{ number_format($efectivoEsperadoHoy, 2) }}</span>
+                        </div>
+                        @if($transferEsperada > 0)
+                        <div class="flex justify-between text-blue-700">
+                            <span>Transferencia (ya depositada):</span>
+                            <span class="font-semibold">${{ number_format($transferEsperada, 2) }}</span>
+                        </div>
+                        @endif
+                        @if($tarjetaEsperada > 0)
+                        <div class="flex justify-between text-blue-700">
+                            <span>Tarjeta:</span>
+                            <span class="font-semibold">${{ number_format($tarjetaEsperada, 2) }}</span>
+                        </div>
+                        @endif
+                    </div>
+                    <p class="text-xs text-blue-600 pt-1">*El campo de abajo es solo para capturar el efectivo físico entregado.</p>
                 </div>
 
                 <form method="POST" action="{{ route('cierres.update', $cierre) }}" onsubmit="return validarEfectivo()">
