@@ -19,27 +19,23 @@ class EstadoVentaController extends Controller
     {
         $vendedor = $request->user();
         $hoy      = now()->toDateString();
+        $debeLiberar = false;
 
         // ── ✅ AUTO-LIBERAR si el bloqueo es de un día anterior ──────────
         if (!empty($vendedor->ventas_bloqueadas)) {
             $cierreId = $vendedor->ventas_bloqueadas_cierre_id;
 
-            $debeLiberar = false;
-
             if ($cierreId) {
                 $cierre = CierreRuta::find($cierreId);
 
                 if (!$cierre) {
-                    // El cierre fue eliminado → liberar
                     $debeLiberar = true;
                     \Log::info("[EstadoVenta] cierre #{$cierreId} no existe → auto-liberar vendedor #{$vendedor->id}");
                 } elseif (Carbon::parse($cierre->fecha)->toDateString() < $hoy) {
-                    // El cierre es de un día anterior → liberar
                     $debeLiberar = true;
                     \Log::info("[EstadoVenta] cierre #{$cierreId} es del " . Carbon::parse($cierre->fecha)->toDateString() . " → auto-liberar vendedor #{$vendedor->id}");
                 }
             } else {
-                // Bloqueado sin cierre_id → liberar (estado inválido)
                 $debeLiberar = true;
             }
 
@@ -52,6 +48,20 @@ class EstadoVentaController extends Controller
                 ]);
                 $vendedor->refresh();
             }
+        } else {
+            // ✅ Detectar si el admin liberó manualmente:
+            // El vendedor ya no está bloqueado pero tiene un cierre de HOY ya liberado
+            $cierreHoyLiberado = CierreRuta::where('vendedor_id', $vendedor->id)
+                ->whereDate('fecha', $hoy)
+                ->where('estatus', 'liberado')
+                ->latest()
+                ->first();
+
+            // Si hay cierre liberado hoy, decirle a la app que fue liberado
+            // para que limpie su cache de visitados
+            if ($cierreHoyLiberado) {
+                $debeLiberar = true;
+            }
         }
 
         // ── Estado actual del cierre del día ─────────────────────────────
@@ -61,10 +71,13 @@ class EstadoVentaController extends Controller
             ->first();
 
         $bloqueado = (bool) $vendedor->ventas_bloqueadas;
+        // fue_liberado = true cuando se auto-liberó ahora O cuando ya estaba libre (para que la app limpie su cache)
+        $fueLiber = ($debeLiberar ?? false);
 
         return response()->json([
             'puede_vender'      => !$bloqueado,
             'ventas_bloqueadas' => $bloqueado,
+            'fue_liberado'      => $fueLiber, // ✅ indica si fue liberado en esta llamada
             'motivo'            => $bloqueado ? $vendedor->ventas_bloqueadas_motivo : null,
             'desde'             => $bloqueado
                 ? optional($vendedor->ventas_bloqueadas_desde)->toDateTimeString()

@@ -483,6 +483,25 @@
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...negro);
         @foreach($traslado->detalles as $detalle)
+        // Salto de página automático
+        if (y > 250) {
+            doc.addPage();
+            y = 14;
+            // Re-dibujar cabecera de tabla en página nueva
+            doc.setFillColor(243, 244, 246);
+            doc.rect(14, y, 182, 7, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(...gris);
+            doc.text('PRODUCTO', 16, y + 5);
+            doc.text('CATEGORÍA', 90, y + 5);
+            doc.text('LOTE', 125, y + 5);
+            doc.text('CADUCA', 155, y + 5);
+            doc.text('CANT.', 183, y + 5, { align: 'right' });
+            y += 7;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...negro);
+        }
         doc.setFontSize(8);
         doc.text('{{ addslashes($detalle->producto->nombre ?? "?") }}', 16, y + 5);
         doc.setTextColor(...gris);
@@ -501,8 +520,11 @@
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.setTextColor(...azul);
-        doc.text('Total unidades:', 155, y + 5);
-        doc.text('{{ $traslado->detalles->sum("cantidad") }}', 194, y + 5, { align: 'right' });
+        doc.text('Tipos de producto:', 100, y + 5);
+        doc.text('{{ $traslado->detalles->count() }}', 155, y + 5, { align: 'right' });
+        doc.text('Total unidades:', 100, y + 11);
+        doc.text('{{ $traslado->detalles->sum("cantidad") }}', 155, y + 11, { align: 'right' });
+        y += 8;
 
         // ── Firma ──
         y += 14;
