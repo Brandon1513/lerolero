@@ -28,6 +28,13 @@ class Cliente extends Model
         'dias_visita' => 'array',
     ];
 
+    // ✅ Forzar JSON_UNESCAPED_UNICODE al guardar dias_visita
+    // Evita que "Miércoles" se guarde como "Mi\u00e9rcoles"
+    public function setDiasVisitaAttribute($value)
+    {
+        $this->attributes['dias_visita'] = json_encode($value, JSON_UNESCAPED_UNICODE);
+    }
+
     public function asignadoA()
     {
         return $this->belongsTo(User::class, 'asignado_a');
