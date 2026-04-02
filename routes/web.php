@@ -90,6 +90,7 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     //  TRASLADOS
     Route::resource('traslados', App\Http\Controllers\TrasladoController::class);
     Route::get('/traslados/{traslado}', [App\Http\Controllers\TrasladoController::class, 'show'])->name('traslados.show');
+    Route::post('/traslados/{traslado}/firma', [App\Http\Controllers\TrasladoController::class, 'guardarFirma'])->name('traslados.firma');
     Route::get('/traslados/lotes/{almacen}', [App\Http\Controllers\TrasladoController::class, 'lotesPorAlmacen']);
     
     //  VENTAS

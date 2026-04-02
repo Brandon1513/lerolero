@@ -21,13 +21,27 @@ class RechazoTemporal extends Model
         'lote',
         'fecha_caducidad',
         'almacen_id',
+        'procesado_en',
     ];
 
     protected $casts = [
-        'cantidad' => 'decimal:2',
-        'fecha' => 'date',
+        'cantidad'     => 'decimal:2',
+        'fecha'        => 'date',
         'fecha_caducidad' => 'date',
+        'procesado_en' => 'datetime',
     ];
+
+    // ✅ Scope para obtener solo rechazos pendientes (no procesados)
+    public function scopePendientes($query)
+    {
+        return $query->whereNull('procesado_en');
+    }
+
+    // ✅ Scope para obtener solo rechazos ya procesados
+    public function scopeProcesados($query)
+    {
+        return $query->whereNotNull('procesado_en');
+    }
 
     /**
      * Relación con el producto devuelto/rechazado

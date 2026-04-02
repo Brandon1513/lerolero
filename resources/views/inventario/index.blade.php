@@ -1,8 +1,17 @@
 <x-app-layout>
     <x-slot name="header">
-        <div>
-            <h2 class="text-2xl font-bold tracking-tight text-gray-900">Inventario General</h2>
-            <p class="text-sm text-gray-500 mt-0.5">Stock por almacén, producto y lote</p>
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-bold tracking-tight text-gray-900">Inventario General</h2>
+                <p class="text-sm text-gray-500 mt-0.5">Stock por almacén, producto y lote</p>
+            </div>
+            <button onclick="abrirModalFirma()"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-600 text-sm font-semibold rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Exportar PDF
+            </button>
         </div>
     </x-slot>
 
@@ -283,4 +292,244 @@
 
         </div>
     </div>
+    {{-- Modal de firma --}}
+    <div id="modal-firma" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+        <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 class="text-lg font-bold text-gray-900 mb-1">Firma de conformidad</h3>
+            <p class="text-sm text-gray-500 mb-4">Firma para confirmar que revisaste el inventario. Se incluirá en el PDF.</p>
+
+            <div class="mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">Responsable</div>
+            <div class="flex items-center gap-3 mb-4 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-lg">
+                <div class="flex items-center justify-center w-8 h-8 text-sm font-bold text-indigo-700 bg-indigo-100 rounded-full shrink-0">
+                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                </div>
+                <div>
+                    <div class="text-sm font-semibold text-gray-900">{{ auth()->user()->name }}</div>
+                    <div class="text-xs text-gray-500">{{ auth()->user()->email }}</div>
+                </div>
+            </div>
+
+            <div class="mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">Firma</div>
+            <canvas id="firma-inv-canvas" width="340" height="100"
+                class="border-2 border-dashed border-gray-300 rounded-xl w-full cursor-crosshair bg-white touch-none mb-2"></canvas>
+
+            <div class="flex gap-2 mb-4">
+                <button type="button" onclick="limpiarFirmaInv()"
+                    class="flex-1 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                    Limpiar
+                </button>
+                <button type="button" onclick="cerrarModalFirma()"
+                    class="flex-1 py-2 text-sm font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                    Cancelar
+                </button>
+            </div>
+
+            <button type="button" onclick="generarPDFInventario()"
+                class="w-full py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">
+                Generar PDF con firma
+            </button>
+            <button type="button" onclick="generarPDFInventario(true)"
+                class="w-full mt-2 py-2 text-xs font-semibold text-gray-500 hover:text-gray-700 transition">
+                Generar sin firma
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+    // ── Modal de firma ────────────────────────────────────────────────
+    const modalFirma = document.getElementById('modal-firma');
+    const canvasInv  = document.getElementById('firma-inv-canvas');
+    const ctxInv     = canvasInv?.getContext('2d');
+    let drawingInv   = false;
+
+    function abrirModalFirma() {
+        modalFirma.classList.remove('hidden');
+        modalFirma.classList.add('flex');
+        limpiarFirmaInv();
+    }
+
+    function cerrarModalFirma() {
+        modalFirma.classList.add('hidden');
+        modalFirma.classList.remove('flex');
+    }
+
+    function limpiarFirmaInv() {
+        ctxInv?.clearRect(0, 0, canvasInv.width, canvasInv.height);
+    }
+
+    if (canvasInv) {
+        const getPos = (e) => {
+            const r = canvasInv.getBoundingClientRect();
+            const src = e.touches ? e.touches[0] : e;
+            return { x: (src.clientX - r.left) * (canvasInv.width / r.width),
+                     y: (src.clientY - r.top)  * (canvasInv.height / r.height) };
+        };
+        canvasInv.addEventListener('mousedown',  e => { drawingInv = true; const p = getPos(e); ctxInv.beginPath(); ctxInv.moveTo(p.x, p.y); });
+        canvasInv.addEventListener('mousemove',  e => { if (!drawingInv) return; const p = getPos(e); ctxInv.lineWidth = 2.5; ctxInv.lineCap = 'round'; ctxInv.strokeStyle = '#1e1b4b'; ctxInv.lineTo(p.x, p.y); ctxInv.stroke(); });
+        canvasInv.addEventListener('mouseup',    () => drawingInv = false);
+        canvasInv.addEventListener('mouseleave', () => drawingInv = false);
+        canvasInv.addEventListener('touchstart',  e => { e.preventDefault(); drawingInv = true; const p = getPos(e); ctxInv.beginPath(); ctxInv.moveTo(p.x, p.y); }, { passive: false });
+        canvasInv.addEventListener('touchmove',   e => { e.preventDefault(); if (!drawingInv) return; const p = getPos(e); ctxInv.lineWidth = 2.5; ctxInv.lineCap = 'round'; ctxInv.strokeStyle = '#1e1b4b'; ctxInv.lineTo(p.x, p.y); ctxInv.stroke(); }, { passive: false });
+        canvasInv.addEventListener('touchend',    () => drawingInv = false);
+    }
+
+    // Cerrar modal al hacer click fuera
+    modalFirma?.addEventListener('click', e => { if (e.target === modalFirma) cerrarModalFirma(); });
+
+    function generarPDFInventario(sinFirma = false) {
+        cerrarModalFirma();
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+        const azul  = [67, 56, 202];
+        const gris  = [107, 114, 128];
+        const negro = [17, 24, 39];
+        const lineC = [229, 231, 235];
+
+        // ── Encabezado ──
+        doc.setFillColor(...azul);
+        doc.rect(0, 0, 297, 14, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Dulces Lero Lero — Inventario General', 14, 9.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text('Generado: ' + new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric' }), 230, 9.5);
+
+        // ── Filtros aplicados ──
+        let y = 22;
+        doc.setTextColor(...gris);
+        doc.setFontSize(8);
+        const filtros = [];
+        @if(request('buscar'))       filtros.push('Producto: {{ request("buscar") }}'); @endif
+        @if(request('almacen_id'))   filtros.push('Almacén: {{ $almacenes->firstWhere("id", request("almacen_id"))?->nombre ?? request("almacen_id") }}'); @endif
+        @if(request('caducidad'))    filtros.push('Caducidad: {{ request("caducidad") }}'); @endif
+        @if(request('stock','con_stock') !== 'con_stock') filtros.push('Stock: {{ request("stock") }}'); @endif
+        if (filtros.length) doc.text('Filtros: ' + filtros.join(' · '), 14, y);
+
+        // ── Stats rápidos ──
+        y += 8;
+        doc.setFillColor(248, 249, 250);
+        doc.rect(14, y, 60, 12, 'F');
+        doc.rect(80, y, 60, 12, 'F');
+        doc.rect(146, y, 60, 12, 'F');
+        doc.rect(212, y, 60, 12, 'F');
+        doc.setTextColor(...azul);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('{{ number_format($statsTotalUnidades) }}', 44, y+5, { align:'center' });
+        doc.text('{{ $statsProductosDistintos }}', 110, y+5, { align:'center' });
+        doc.text('{{ $statsProximosVencer }}', 176, y+5, { align:'center' });
+        doc.text('{{ $statsVencidos }}', 242, y+5, { align:'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...gris);
+        doc.text('Unidades totales', 44, y+10, { align:'center' });
+        doc.text('Productos distintos', 110, y+10, { align:'center' });
+        doc.text('Próx. a vencer (30d)', 176, y+10, { align:'center' });
+        doc.text('Lotes vencidos', 242, y+10, { align:'center' });
+
+        // ── Línea ──
+        y += 18;
+        doc.setDrawColor(...lineC);
+        doc.line(14, y, 283, y);
+        y += 5;
+
+        // ── Cabecera tabla ──
+        doc.setFillColor(243, 244, 246);
+        doc.rect(14, y, 269, 7, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...gris);
+        doc.text('PRODUCTO',   16,  y+5);
+        doc.text('CATEGORÍA',  90,  y+5);
+        doc.text('LOTE',       135, y+5);
+        doc.text('CADUCA',     170, y+5);
+        doc.text('ESTADO',     205, y+5);
+        doc.text('ALMACÉN',    235, y+5);
+        doc.text('CANT.',      278, y+5, { align:'right' });
+        y += 7;
+
+        // ── Filas ──
+        doc.setFont('helvetica', 'normal');
+        @foreach($inventarios as $inv)
+        @php
+            $caducidad = $inv->fecha_caducidad ? \Carbon\Carbon::parse($inv->fecha_caducidad) : null;
+            $vencido   = $caducidad && $caducidad->isPast();
+            $pronto    = $caducidad && !$vencido && $caducidad->diffInDays(now()) <= 30;
+            $estado    = $vencido ? 'Vencido' : ($pronto ? 'Próx. vencer' : 'Vigente');
+            $estadoR   = $vencido ? [220,38,38] : ($pronto ? [180,83,9] : [4,120,87]);
+        @endphp
+        if (y > 185) { doc.addPage(); y = 14; }
+        doc.setFontSize(8);
+        doc.setTextColor(...negro);
+        doc.text('{{ addslashes(mb_substr($inv->producto->nombre ?? "?", 0, 30)) }}', 16, y+5);
+        doc.setTextColor(...gris);
+        doc.text('{{ addslashes($inv->producto->categoria->nombre ?? "—") }}', 90, y+5);
+        doc.setTextColor(...negro);
+        doc.text('{{ $inv->lote ?? "—" }}', 135, y+5);
+        doc.text('{{ $caducidad ? $caducidad->format("d/m/Y") : "—" }}', 170, y+5);
+        doc.setTextColor({{ $estadoR[0] }}, {{ $estadoR[1] }}, {{ $estadoR[2] }});
+        doc.text('{{ $estado }}', 205, y+5);
+        doc.setTextColor(...negro);
+        doc.text('{{ mb_substr($inv->almacen->nombre ?? "—", 0, 20) }}', 235, y+5);
+        doc.setFont('helvetica', 'bold');
+        doc.text('{{ number_format($inv->cantidad) }}', 283, y+5, { align:'right' });
+        doc.setFont('helvetica', 'normal');
+        y += 7;
+        doc.setDrawColor(...lineC);
+        doc.line(14, y, 283, y);
+        @endforeach
+
+        // ── Firma ──
+        if (!sinFirma && canvasInv) {
+            const firmaData = canvasInv.toDataURL('image/png');
+            // Verificar que hay algo dibujado (no canvas vacío)
+            const pixeles = ctxInv.getImageData(0, 0, canvasInv.width, canvasInv.height).data;
+            const hayFirma = pixeles.some(p => p !== 0);
+            if (hayFirma) {
+                const lastPage = doc.getNumberOfPages();
+                doc.setPage(lastPage);
+                // Espacio para firma
+                if (y > 160) { doc.addPage(); y = 14; }
+                y += 6;
+                doc.setDrawColor(...lineC);
+                doc.line(14, y, 283, y);
+                y += 6;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9);
+                doc.setTextColor(...azul);
+                doc.text('FIRMA DE CONFORMIDAD', 14, y);
+                y += 5;
+                try {
+                    doc.addImage(firmaData, 'PNG', 14, y, 70, 22);
+                } catch(e) {}
+                y += 26;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                doc.setTextColor(...gris);
+                doc.text('{{ auth()->user()->name }}', 14, y);
+                doc.text('Responsable de inventario', 14, y + 4);
+                doc.text(new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }), 14, y + 8);
+            }
+        }
+
+        // ── Pie ──
+        const totalPags = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPags; i++) {
+            doc.setPage(i);
+            doc.setFillColor(...azul);
+            doc.rect(0, 200, 297, 10, 'F');
+            doc.setTextColor(255,255,255);
+            doc.setFontSize(7);
+            doc.text('Dulces Lero Lero · Inventario General · ' + new Date().toLocaleDateString('es-MX'), 148, 206.5, { align:'center' });
+            doc.text('Pág. ' + i + ' / ' + totalPags, 283, 206.5, { align:'right' });
+        }
+
+        const almacenNombre = '{{ request("almacen_id") ? ($almacenes->firstWhere("id", request("almacen_id"))?->nombre ?? "todos") : "todos" }}';
+        doc.save('inventario-' + almacenNombre + '-' + new Date().toISOString().slice(0,10) + '.pdf');
+    }
+    </script>
 </x-app-layout>

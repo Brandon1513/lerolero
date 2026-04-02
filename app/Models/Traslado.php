@@ -11,6 +11,8 @@ class Traslado extends Model
         'almacen_destino_id',
         'fecha',
         'observaciones',
+        'user_id',
+        'firma_base64',
     ];
 
     public function origen()
@@ -26,5 +28,10 @@ class Traslado extends Model
     public function detalles()
     {
         return $this->hasMany(DetalleTraslado::class);
+    }
+
+    public function usuario()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

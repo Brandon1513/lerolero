@@ -17,6 +17,16 @@
                 </div>
             </div>
 
+            <div class="flex items-center gap-2">
+            {{-- Botón PDF --}}
+            <button onclick="generarPDF()"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-600 text-sm font-semibold rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Descargar PDF
+            </button>
+
             {{-- Acción eliminar desde el show --}}
             @if($traslado->puede_eliminar ?? false)
                 <form action="{{ route('traslados.destroy', $traslado) }}" method="POST"
@@ -32,6 +42,7 @@
                     </button>
                 </form>
             @endif
+            </div>
         </div>
     </x-slot>
 
@@ -108,6 +119,57 @@
                                 <div class="text-xs font-semibold tracking-wide text-gray-400 uppercase">Destino</div>
                                 <div class="text-sm font-semibold text-gray-900">{{ $traslado->destino->nombre }}</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Card: Realizado por --}}
+                <div class="overflow-hidden bg-white border border-gray-200 shadow-sm rounded-xl">
+                    <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">
+                        <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            Realizado por
+                        </h3>
+                    </div>
+                    <div class="p-5">
+                        @if($traslado->usuario)
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center justify-center w-10 h-10 text-sm font-bold text-indigo-700 bg-indigo-100 rounded-full shrink-0">
+                                    {{ strtoupper(substr($traslado->usuario->name, 0, 1)) }}
+                                </div>
+                                <div>
+                                    <div class="text-sm font-semibold text-gray-900">{{ $traslado->usuario->name }}</div>
+                                    <div class="text-xs text-gray-500">{{ $traslado->usuario->email }}</div>
+                                </div>
+                            </div>
+                        @else
+                            <span class="text-sm text-gray-400">No registrado</span>
+                        @endif
+
+                        {{-- Firma digital --}}
+                        <div class="mt-4 pt-4 border-t border-gray-100">
+                            <div class="text-xs font-semibold tracking-wide text-gray-500 uppercase mb-2">Firma digital</div>
+                            @if($traslado->firma_base64)
+                                <img src="{{ $traslado->firma_base64 }}" class="border border-gray-200 rounded-lg w-full h-24 object-contain bg-white" alt="Firma"/>
+                                <p class="mt-1 text-xs text-green-600 font-semibold">✓ Firmado</p>
+                            @else
+                                {{-- Canvas para firmar --}}
+                                <canvas id="firma-canvas" width="280" height="96"
+                                    class="border-2 border-dashed border-gray-300 rounded-lg w-full cursor-crosshair bg-white touch-none"></canvas>
+                                <div class="flex gap-2 mt-2">
+                                    <button type="button" onclick="limpiarFirma()"
+                                        class="flex-1 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                                        Limpiar
+                                    </button>
+                                    <button type="button" onclick="guardarFirma()"
+                                        class="flex-1 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">
+                                        Guardar firma
+                                    </button>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-400">Firma con el dedo o el mouse</p>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -276,4 +338,210 @@
 
         </div>
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+    // ── Firma digital ──────────────────────────────────────────────────
+    const canvas = document.getElementById('firma-canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+
+        const getPos = (e) => {
+            const r = canvas.getBoundingClientRect();
+            const src = e.touches ? e.touches[0] : e;
+            return { x: src.clientX - r.left, y: src.clientY - r.top };
+        };
+
+        canvas.addEventListener('mousedown',  e => { drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+        canvas.addEventListener('mousemove',  e => { if (!drawing) return; const p = getPos(e); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1e1b4b'; ctx.lineTo(p.x, p.y); ctx.stroke(); });
+        canvas.addEventListener('mouseup',    () => drawing = false);
+        canvas.addEventListener('mouseleave', () => drawing = false);
+
+        canvas.addEventListener('touchstart',  e => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }, { passive: false });
+        canvas.addEventListener('touchmove',   e => { e.preventDefault(); if (!drawing) return; const p = getPos(e); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1e1b4b'; ctx.lineTo(p.x, p.y); ctx.stroke(); }, { passive: false });
+        canvas.addEventListener('touchend',    () => drawing = false);
+    }
+
+    function limpiarFirma() {
+        if (!canvas) return;
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    async function guardarFirma() {
+        if (!canvas) return;
+        const firmaData = canvas.toDataURL('image/png');
+
+        const res = await fetch('{{ route("traslados.firma", $traslado->id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ firma_base64: firmaData })
+        });
+
+        if (res.ok) {
+            location.reload();
+        } else {
+            alert('Error al guardar la firma');
+        }
+    }
+
+    // ── Generar PDF ────────────────────────────────────────────────────
+    async function generarPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+        const azul   = [67, 56, 202];
+        const gris   = [107, 114, 128];
+        const negro  = [17, 24, 39];
+        const lineC  = [229, 231, 235];
+
+        let y = 20;
+
+        // ── Encabezado ──
+        doc.setFillColor(...azul);
+        doc.rect(0, 0, 210, 14, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Dulces Lero Lero — Comprobante de Traslado', 14, 9.5);
+
+        // ── Título ──
+        y = 24;
+        doc.setTextColor(...negro);
+        doc.setFontSize(16);
+        doc.text('Traslado #{{ $traslado->id }}', 14, y);
+        doc.setFontSize(9);
+        doc.setTextColor(...gris);
+        doc.text('Fecha: {{ \Carbon\Carbon::parse($traslado->fecha)->format("d/m/Y") }}', 14, y + 6);
+        doc.text('Generado: ' + new Date().toLocaleDateString('es-MX'), 14, y + 11);
+
+        // ── Línea divisora ──
+        y += 18;
+        doc.setDrawColor(...lineC);
+        doc.line(14, y, 196, y);
+        y += 6;
+
+        // ── Ruta del traslado ──
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...azul);
+        doc.text('RUTA DEL TRASLADO', 14, y);
+        y += 5;
+        doc.setTextColor(...negro);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text('Origen:  {{ $traslado->origen->nombre }}', 14, y);
+        y += 5;
+        doc.text('Destino: {{ $traslado->destino->nombre }}', 14, y);
+        @if($traslado->observaciones)
+        y += 5;
+        doc.text('Obs.: {{ $traslado->observaciones }}', 14, y);
+        @endif
+
+        // ── Realizado por ──
+        y += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(...azul);
+        doc.text('REALIZADO POR', 14, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(...negro);
+        doc.text('{{ $traslado->usuario->name ?? "No registrado" }}', 14, y);
+
+        // ── Línea divisora ──
+        y += 8;
+        doc.setDrawColor(...lineC);
+        doc.line(14, y, 196, y);
+        y += 6;
+
+        // ── Tabla de productos ──
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(...azul);
+        doc.text('PRODUCTOS TRASLADADOS', 14, y);
+        y += 5;
+
+        // Cabecera tabla
+        doc.setFillColor(243, 244, 246);
+        doc.rect(14, y, 182, 7, 'F');
+        doc.setFontSize(8);
+        doc.setTextColor(...gris);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PRODUCTO', 16, y + 5);
+        doc.text('CATEGORÍA', 90, y + 5);
+        doc.text('LOTE', 125, y + 5);
+        doc.text('CADUCA', 155, y + 5);
+        doc.text('CANT.', 183, y + 5, { align: 'right' });
+        y += 7;
+
+        // Filas
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...negro);
+        @foreach($traslado->detalles as $detalle)
+        doc.setFontSize(8);
+        doc.text('{{ addslashes($detalle->producto->nombre ?? "?") }}', 16, y + 5);
+        doc.setTextColor(...gris);
+        doc.text('{{ addslashes($detalle->producto->categoria->nombre ?? "—") }}', 90, y + 5);
+        doc.setTextColor(...negro);
+        doc.text('{{ $detalle->lote ?? "—" }}', 125, y + 5);
+        doc.text('{{ $detalle->fecha_caducidad ? \Carbon\Carbon::parse($detalle->fecha_caducidad)->format("d/m/Y") : "—" }}', 155, y + 5);
+        doc.text('{{ $detalle->cantidad }}', 194, y + 5, { align: 'right' });
+        y += 7;
+        doc.setDrawColor(...lineC);
+        doc.line(14, y, 196, y);
+        @endforeach
+
+        // Total
+        y += 3;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(...azul);
+        doc.text('Total unidades:', 155, y + 5);
+        doc.text('{{ $traslado->detalles->sum("cantidad") }}', 194, y + 5, { align: 'right' });
+
+        // ── Firma ──
+        y += 14;
+        doc.setDrawColor(...lineC);
+        doc.line(14, y, 196, y);
+        y += 8;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(...azul);
+        doc.text('FIRMA DE CONFORMIDAD', 14, y);
+        y += 6;
+
+        @if($traslado->firma_base64)
+        try {
+            doc.addImage('{{ $traslado->firma_base64 }}', 'PNG', 14, y, 60, 20);
+        } catch(e) {}
+        y += 24;
+        @else
+        // Espacio en blanco para firma manual
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(14, y, 80, 20);
+        y += 24;
+        @endif
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...gris);
+        doc.text('{{ $traslado->usuario->name ?? "___________________________" }}', 14, y);
+        doc.text('Nombre y firma', 14, y + 4);
+
+        // ── Pie ──
+        doc.setFillColor(...azul);
+        doc.rect(0, 287, 210, 10, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7);
+        doc.text('Dulces Lero Lero · Traslado #{{ $traslado->id }} · {{ \Carbon\Carbon::parse($traslado->fecha)->format("d/m/Y") }}', 105, 293.5, { align: 'center' });
+
+        doc.save('traslado-{{ $traslado->id }}.pdf');
+    }
+    </script>
 </x-app-layout>

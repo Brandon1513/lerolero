@@ -17,24 +17,6 @@
 
     <div class="max-w-6xl py-8 mx-auto sm:px-6 lg:px-8">
 
-        {{-- ── ALERTAS ── --}}
-        @if(session('success'))
-            <div class="flex items-center gap-3 px-4 py-3 mb-4 text-sm text-green-800 border border-green-200 bg-green-50 rounded-xl">
-                <svg class="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                </svg>
-                {{ session('success') }}
-            </div>
-        @endif
-        @if(session('error'))
-            <div class="flex items-center gap-3 px-4 py-3 mb-4 text-sm text-red-800 border border-red-200 bg-red-50 rounded-xl">
-                <svg class="w-5 h-5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9v4a1 1 0 102 0V9a1 1 0 10-2 0zm0-4a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd"/>
-                </svg>
-                {{ session('error') }}
-            </div>
-        @endif
-
         {{-- ── FILTROS ── --}}
         <div class="p-4 mb-4 bg-white border border-gray-200 shadow-sm rounded-xl">
             <form method="GET" action="{{ route('producciones.index') }}" class="flex flex-wrap items-end gap-3">
@@ -63,6 +45,19 @@
                     </div>
                 </div>
 
+                <div class="min-w-[160px]">
+                    <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Categoría</label>
+                    <select name="categoria_id"
+                        class="w-full px-3 py-2 text-sm transition border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                        <option value="">— Todas —</option>
+                        @foreach($categorias as $cat)
+                            <option value="{{ $cat->id }}" {{ request('categoria_id') == $cat->id ? 'selected' : '' }}>
+                                {{ $cat->nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <div class="flex gap-2">
                     <button type="submit"
                         class="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
@@ -71,7 +66,7 @@
                         </svg>
                         Filtrar
                     </button>
-                    @if(request()->hasAny(['fecha_inicio','fecha_fin','buscar']))
+                    @if(request()->hasAny(['fecha_inicio','fecha_fin','buscar','categoria_id']))
                         <a href="{{ route('producciones.index') }}"
                             class="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,6 +145,7 @@
                         <tr class="border-b border-gray-200 bg-gray-50">
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Fecha</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Producto</th>
+                            <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Categoría</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-right text-gray-500 uppercase">Cantidad</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Lote</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Caduca</th>
@@ -187,6 +183,17 @@
                                         </div>
                                         <span class="font-medium text-gray-900">{{ $produccion->producto->nombre }}</span>
                                     </div>
+                                </td>
+
+                                {{-- Categoría --}}
+                                <td class="px-5 py-3.5">
+                                    @if($produccion->producto->categoria)
+                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-50 text-indigo-700">
+                                            {{ $produccion->producto->categoria->nombre }}
+                                        </span>
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
                                 </td>
 
                                 {{-- Cantidad --}}
@@ -253,14 +260,14 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-5 py-16 text-center">
+                                <td colspan="9" class="px-5 py-16 text-center">
                                     <div class="flex flex-col items-center gap-3">
                                         <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                                         </svg>
                                         <div class="font-medium text-gray-500">Sin producciones</div>
                                         <div class="text-sm text-gray-400">No hay registros con los filtros aplicados.</div>
-                                        @if(request()->hasAny(['fecha_inicio','fecha_fin','buscar']))
+                                        @if(request()->hasAny(['fecha_inicio','fecha_fin','buscar','categoria_id']))
                                             <a href="{{ route('producciones.index') }}" class="text-sm text-indigo-600 hover:underline">Limpiar filtros</a>
                                         @endif
                                     </div>

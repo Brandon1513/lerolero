@@ -24,7 +24,7 @@ class ProduccionController extends Controller
     $statsUnidadesMes   = \App\Models\Produccion::whereDate('fecha', '>=', $mes)->sum('cantidad');
 
     // ── Query con filtros ─────────────────────────────────────
-    $producciones = Produccion::with(['producto', 'usuario'])
+    $producciones = Produccion::with(['producto.categoria', 'usuario'])
         ->when($request->filled('fecha_inicio'),
             fn($q) => $q->whereDate('fecha', '>=', $request->fecha_inicio))
         ->when($request->filled('fecha_fin'),
@@ -34,13 +34,21 @@ class ProduccionController extends Controller
                 $p->where('nombre', 'like', '%'.$request->buscar.'%')
             );
         })
+        ->when($request->filled('categoria_id'), function ($q) use ($request) {
+            $q->whereHas('producto', fn($p) =>
+                $p->where('categoria_id', $request->categoria_id)
+            );
+        })
         ->orderBy('fecha', 'desc')
         ->orderBy('id', 'desc')
         ->paginate(15)
         ->withQueryString();
 
+    $categorias = \App\Models\Categoria::orderBy('nombre')->get();
+
     return view('producciones.index', compact(
         'producciones',
+        'categorias',
         'statsTotal',
         'statsHoy',
         'statsUnidadesHoy',
@@ -50,8 +58,9 @@ class ProduccionController extends Controller
 
     public function create()
     {
-        $productos = Producto::orderBy('nombre')->get();
-        return view('producciones.create', compact('productos'));
+        $productos = Producto::with('categoria')->orderBy('nombre')->get();
+        $categorias = \App\Models\Categoria::orderBy('nombre')->get();
+        return view('producciones.create', compact('productos', 'categorias'));
     }
 
 

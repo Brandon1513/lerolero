@@ -90,6 +90,8 @@ public function index(Request $request)
                     'almacen_destino_id' => $request->almacen_destino_id,
                     'fecha' => $request->fecha,
                     'observaciones' => $request->observaciones,
+                    'user_id' => auth()->id(),
+                    'firma_base64' => $request->firma_base64 ?? null,
                 ]);
 
                 foreach ($request->detalles as $productoId => $lotes) {
@@ -141,7 +143,7 @@ public function index(Request $request)
 
     public function show(Traslado $traslado)
     {
-        $traslado->load(['origen', 'destino', 'detalles.producto']);
+        $traslado->load(['origen', 'destino', 'detalles.producto.categoria', 'usuario']);
         return view('traslados.show', compact('traslado'));
     }
 
@@ -356,5 +358,16 @@ public function index(Request $request)
 
     return true;
 }
+
+    public function guardarFirma(Request $request, Traslado $traslado)
+    {
+        $request->validate([
+            'firma_base64' => 'required|string',
+        ]);
+
+        $traslado->update(['firma_base64' => $request->firma_base64]);
+
+        return response()->json(['ok' => true]);
+    }
 
 }

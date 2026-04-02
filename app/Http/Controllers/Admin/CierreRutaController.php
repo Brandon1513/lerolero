@@ -271,6 +271,7 @@ class CierreRutaController extends Controller
 
         // 3. Procesar cambios con info completa (cliente + sustituciones)
         $rechazos = RechazoTemporal::where('vendedor_id', $cierre->vendedor_id)
+            ->whereNull('procesado_en') // ✅ solo los no procesados aún
             ->with(['producto', 'venta.cliente', 'detalles.producto'])
             ->get();
 
@@ -322,7 +323,8 @@ class CierreRutaController extends Controller
                 })->toArray(),
             ];
 
-            $rechazo->delete();
+            // ✅ NO borrar — marcar como procesado para mantener historial en ventas
+            $rechazo->update(['procesado_en' => now()]);
         }
 
         // 4. Traslado de devolución al almacén general

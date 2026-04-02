@@ -60,6 +60,7 @@ class CierreRutaMovilController extends Controller
                 // Antes filtraba whereNull('venta_id') → perdía los cambios vinculados
                 // Ahora incluye TODOS los rechazos del vendedor del día
                 $rechazos = RechazoTemporal::where('vendedor_id', $vendedor->id)
+                    ->whereNull('procesado_en') // ✅ solo pendientes
                     ->with(['producto', 'venta.cliente', 'detalles.producto'])
                     ->get();
 

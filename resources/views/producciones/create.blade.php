@@ -51,19 +51,69 @@
                         <div class="p-5 space-y-4">
 
                             <div>
-                                <label for="producto_id" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">
                                     Producto <span class="text-red-500">*</span>
                                 </label>
-                                <select name="producto_id" id="producto_id" required
-                                    class="w-full px-3 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white
-                                        {{ $errors->has('producto_id') ? 'border-red-400 bg-red-50' : 'border-gray-300' }}">
-                                    <option value="">— Selecciona un producto —</option>
-                                    @foreach($productos as $producto)
-                                        <option value="{{ $producto->id }}" {{ old('producto_id') == $producto->id ? 'selected' : '' }}>
-                                            {{ $producto->nombre }}{{ $producto->marca ? ' · '.$producto->marca : '' }}
-                                        </option>
+
+                                {{-- Input oculto que se envía al form --}}
+                                <input type="hidden" name="producto_id" id="producto_id" value="{{ old('producto_id') }}" required>
+
+                                {{-- Chips de categoría --}}
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <button type="button" data-cat=""
+                                        class="cat-chip px-3 py-1 text-xs font-semibold rounded-full border border-gray-300 bg-gray-100 text-gray-700 hover:bg-indigo-100 transition active-chip">
+                                        Todas
+                                    </button>
+                                    @foreach($categorias as $cat)
+                                        <button type="button" data-cat="{{ $cat->id }}" data-nombre="{{ strtolower($cat->nombre) }}"
+                                            class="cat-chip px-3 py-1 text-xs font-semibold rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-indigo-100 transition">
+                                            {{ $cat->nombre }}
+                                        </button>
                                     @endforeach
-                                </select>
+                                </div>
+
+                                {{-- Buscador --}}
+                                <div class="relative mb-2">
+                                    <svg class="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                    <input type="text" id="producto-search" placeholder="Buscar producto..."
+                                        autocomplete="off"
+                                        class="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                                </div>
+
+                                {{-- Lista de resultados --}}
+                                <div id="producto-lista"
+                                    class="max-h-52 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100 bg-white shadow-sm">
+                                    @foreach($productos as $producto)
+                                        <button type="button"
+                                            data-id="{{ $producto->id }}"
+                                            data-nombre="{{ $producto->nombre }}"
+                                            data-cat="{{ $producto->categoria_id }}"
+                                            class="producto-item w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition flex items-center justify-between gap-2">
+                                            <span class="font-medium text-gray-900">{{ $producto->nombre }}</span>
+                                            @if($producto->categoria)
+                                                <span class="shrink-0 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                                    {{ $producto->categoria->nombre }}
+                                                </span>
+                                            @endif
+                                        </button>
+                                    @endforeach
+                                </div>
+
+                                {{-- Producto seleccionado --}}
+                                <div id="producto-seleccionado" class="hidden mt-2 flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                    <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <span id="producto-seleccionado-nombre" class="text-sm font-semibold text-indigo-800 flex-1"></span>
+                                    <button type="button" id="producto-limpiar" class="text-indigo-400 hover:text-indigo-600 transition">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
+                                </div>
+
                                 @error('producto_id')
                                     <p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>
                                 @enderror
@@ -232,6 +282,131 @@
     </div>
 
     <script>
+    // ── Meses de caducidad por categoría ─────────────────────────────
+    const MESES_CADUCIDAD = {
+        'dulce chico': 3,
+        'comodin':     3,
+        'dulces':      3,
+        'gourmet':     2,
+        'botanas':     1,
+        'enchilados':  2,
+        'enchiladero': 2,
+        'frituras':    1,
+        'pulpas':      5,
+        'regionales':  3,
+    };
+
+    // ── Helpers de fecha ──────────────────────────────────────────────
+    const hoyISO = () => {
+        const d = new Date();
+        return d.toISOString().split('T')[0];
+    };
+
+    const sumarMeses = (meses) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() + meses);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    // ── Autocompletar lote con la fecha de hoy ────────────────────────
+    const loteInput = document.getElementById('lote');
+    if (loteInput && !loteInput.value) {
+        const hoy = new Date();
+        const dd  = String(hoy.getDate()).padStart(2, '0');
+        const mm  = String(hoy.getMonth() + 1).padStart(2, '0');
+        const yy  = String(hoy.getFullYear()).slice(2);
+        loteInput.value = `LOTE${dd}${mm}${yy}`;
+    }
+
+    // ── Autocompletar caducidad según categoría seleccionada ─────────
+    let categoriaActivaNombre = '';
+
+    function aplicarCaducidadPorCategoria(nombreCat, forzar = false) {
+        const key    = (nombreCat || '').toLowerCase().trim();
+        const meses  = MESES_CADUCIDAD[key] ?? null;
+        const cadInput = document.getElementById('fecha_caducidad');
+
+        if (meses && cadInput && (forzar || !cadInput.value)) {
+            cadInput.value = sumarMeses(meses);
+            // Disparar el evento change para que se actualice el preview
+            cadInput.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // Si hay un producto ya seleccionado con old(), intentar aplicar caducidad
+    // (solo si viene categoría en los chips ya activos)
+
+    // ── Buscador de productos con chips de categoría ──────────────────
+    const search       = document.getElementById('producto-search');
+    const lista        = document.getElementById('producto-lista');
+    const hiddenInput  = document.getElementById('producto_id');
+    const selDiv       = document.getElementById('producto-seleccionado');
+    const selNombre    = document.getElementById('producto-seleccionado-nombre');
+    const btnLimpiar   = document.getElementById('producto-limpiar');
+    const chips        = document.querySelectorAll('.cat-chip');
+    const items        = document.querySelectorAll('.producto-item');
+
+    let catActiva = '';
+
+    // Restaurar selección si viene con old()
+    const oldId = '{{ old("producto_id") }}';
+    if (oldId) {
+        const oldItem = document.querySelector(`.producto-item[data-id="${oldId}"]`);
+        if (oldItem) seleccionarProducto(oldId, oldItem.dataset.nombre);
+    }
+
+    function filtrar() {
+        const q = search.value.toLowerCase().trim();
+        items.forEach(item => {
+            const matchNombre = item.dataset.nombre.toLowerCase().includes(q);
+            const matchCat    = !catActiva || item.dataset.cat === catActiva;
+            item.style.display = (matchNombre && matchCat) ? '' : 'none';
+        });
+    }
+
+    function seleccionarProducto(id, nombre) {
+        hiddenInput.value = id;
+        selNombre.textContent = nombre;
+        selDiv.classList.remove('hidden');
+        lista.classList.add('hidden');
+        search.classList.add('hidden');
+    }
+
+    function limpiarSeleccion() {
+        hiddenInput.value = '';
+        selDiv.classList.add('hidden');
+        lista.classList.remove('hidden');
+        search.classList.remove('hidden');
+        search.value = '';
+        filtrar();
+        search.focus();
+    }
+
+    search.addEventListener('input', filtrar);
+
+    items.forEach(item => {
+        item.addEventListener('click', () => {
+            seleccionarProducto(item.dataset.id, item.dataset.nombre);
+        });
+    });
+
+    btnLimpiar.addEventListener('click', limpiarSeleccion);
+
+    chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            chips.forEach(c => c.classList.remove('active-chip', 'bg-indigo-600', 'text-white', 'border-indigo-600'));
+            chip.classList.add('active-chip', 'bg-indigo-600', 'text-white', 'border-indigo-600');
+            catActiva = chip.dataset.cat;
+            categoriaActivaNombre = chip.dataset.nombre || '';
+            filtrar();
+            // Autocompletar caducidad — siempre al cambiar categoría
+            aplicarCaducidadPorCategoria(categoriaActivaNombre, true);
+        });
+    });
+
     // Preview de caducidad en tiempo real
     document.getElementById('fecha_caducidad').addEventListener('change', function () {
         const preview = document.getElementById('preview-caducidad');
