@@ -66,16 +66,22 @@ class InventarioController extends Controller
             };
         }
 
-        $inventarios = $query
+        $inventarios = $query->clone()
             ->orderBy('fecha_caducidad')
             ->paginate(15)
             ->withQueryString();
+
+        // ✅ Todos los registros para el PDF (sin paginar)
+        $inventariosTodos = $query
+            ->orderBy('fecha_caducidad')
+            ->get();
 
         $almacenes = Almacen::orderBy('nombre')->get();
         $productos = Producto::orderBy('nombre')->get();
 
         return view('inventario.index', compact(
             'inventarios',
+            'inventariosTodos',
             'almacenes',
             'productos',
             'statsTotalUnidades',

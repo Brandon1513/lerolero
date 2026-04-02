@@ -454,7 +454,7 @@
 
         // ── Filas ──
         doc.setFont('helvetica', 'normal');
-        @foreach($inventarios as $inv)
+        @foreach($inventariosTodos as $inv)
         @php
             $caducidad = $inv->fecha_caducidad ? \Carbon\Carbon::parse($inv->fecha_caducidad) : null;
             $vencido   = $caducidad && $caducidad->isPast();
@@ -462,7 +462,26 @@
             $estado    = $vencido ? 'Vencido' : ($pronto ? 'Próx. vencer' : 'Vigente');
             $estadoR   = $vencido ? [220,38,38] : ($pronto ? [180,83,9] : [4,120,87]);
         @endphp
-        if (y > 185) { doc.addPage(); y = 14; }
+        if (y > 185) {
+            doc.addPage();
+            y = 14;
+            // Re-dibujar cabecera en página nueva
+            doc.setFillColor(243, 244, 246);
+            doc.rect(14, y, 269, 7, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...gris);
+            doc.text('PRODUCTO',   16,  y+5);
+            doc.text('CATEGORÍA',  90,  y+5);
+            doc.text('LOTE',       135, y+5);
+            doc.text('CADUCA',     170, y+5);
+            doc.text('ESTADO',     205, y+5);
+            doc.text('ALMACÉN',    235, y+5);
+            doc.text('CANT.',      278, y+5, { align:'right' });
+            y += 7;
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...negro);
+        }
         doc.setFontSize(8);
         doc.setTextColor(...negro);
         doc.text('{{ addslashes(mb_substr($inv->producto->nombre ?? "?", 0, 30)) }}', 16, y+5);
