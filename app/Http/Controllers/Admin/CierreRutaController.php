@@ -105,34 +105,44 @@ class CierreRutaController extends Controller
         $vendedorId = $cierre->vendedor_id;
 
         // ✅ Determinar el rango de ventas del cierre
-        // Regla: el cierre cubre ventas desde su created_at hacia atrás
-        // hasta el created_at del cierre anterior inmediato del mismo vendedor.
-        // Esto maneja correctamente reaperturas (#15 → #16) y ventas nocturnas.
+        // La estrategia más confiable es:
+        // - Límite inferior: created_at del cierre anterior inmediato (para capturar ventas nocturnas)
+        // - Límite superior: fin del día del cierre (para no cortar ventas del mismo día)
+        // - Si hay reapertura del mismo día: el cierre liberado no tiene ventas propias
 
         $cierreAnteriorInmediato = CierreRuta::where('vendedor_id', $vendedorId)
             ->where('id', '<', $cierre->id)
             ->latest('id')
-            ->first(); // cualquier cierre anterior, incluso liberados
-
-        // Si tiene fecha_desde explícito, usarlo (nuevo comportamiento)
-        // Si no, usar created_at del cierre anterior como límite inferior
-        if ($cierre->fecha_desde) {
-            $fechaInicioPeriodo = $cierre->fecha_desde;
-        } elseif ($cierreAnteriorInmediato) {
-            // Usar created_at del cierre anterior (no updated_at) para evitar
-            // que reaperturas o cuadres tardíos amplíen el período
-            $fechaInicioPeriodo = $cierreAnteriorInmediato->created_at;
-        } else {
-            $fechaInicioPeriodo = null;
-        }
+            ->first();
 
         $cierreAnteriorProcesado = $cierreAnteriorInmediato; // alias para pagos
 
-        if ($fechaInicioPeriodo) {
+        // Si tiene fecha_desde explícito, es el más preciso
+        if ($cierre->fecha_desde) {
+            $desde = $cierre->fecha_desde;
+            $hasta = Carbon::parse($fecha)->endOfDay();
+        } elseif ($cierreAnteriorInmediato) {
+            // ¿El cierre anterior es del mismo día? (reapertura)
+            $fechaAnterior = Carbon::parse($cierreAnteriorInmediato->fecha)->toDateString();
+            if ($fechaAnterior === $fecha) {
+                // Reapertura del mismo día: solo ventas entre los dos cierres
+                $desde = $cierreAnteriorInmediato->created_at;
+                $hasta = Carbon::parse($fecha)->endOfDay();
+            } else {
+                // Día diferente: desde el created_at del cierre anterior
+                $desde = $cierreAnteriorInmediato->created_at;
+                $hasta = Carbon::parse($fecha)->endOfDay();
+            }
+        } else {
+            $desde = null;
+            $hasta = Carbon::parse($fecha)->endOfDay();
+        }
+
+        if ($desde) {
             $ventasDia = Venta::with('cliente')
                 ->where('vendedor_id', $vendedorId)
-                ->where('created_at', '>', $fechaInicioPeriodo)
-                ->where('created_at', '<=', $cierre->created_at)
+                ->where('created_at', '>', $desde)
+                ->where('created_at', '<=', $hasta)
                 ->get();
         } else {
             $ventasDia = Venta::with('cliente')
@@ -154,9 +164,9 @@ class CierreRutaController extends Controller
         // ✅ Pagos del mismo período que ventas
         $pagosHoy = PagoVenta::with('venta.cliente')
             ->where('cobrador_id', $vendedorId)
-            ->when($fechaInicioPeriodo,
-                fn($q) => $q->where('created_at', '>', $fechaInicioPeriodo)
-                             ->where('created_at', '<=', $cierre->created_at),
+            ->when($desde,
+                fn($q) => $q->where('created_at', '>', $desde)
+                             ->where('created_at', '<=', $hasta),
                 fn($q) => $q->whereDate('created_at', $fecha)
             )
             ->get();
