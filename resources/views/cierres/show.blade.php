@@ -341,7 +341,7 @@
                 {{-- Total cobrado hoy --}}
                 <div class="p-5 border-2 border-emerald-300 rounded-xl bg-emerald-50">
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-sm font-semibold tracking-wide text-emerald-700 uppercase">Total cobrado hoy</span>
+                        <span class="text-sm font-semibold tracking-wide uppercase text-emerald-700">Total cobrado hoy</span>
                         <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
                     </div>
                     <div class="text-4xl font-bold text-emerald-800">
@@ -477,33 +477,280 @@
         </div>
 
         <div class="p-6 bg-white rounded-lg shadow">
-            <h3 class="mb-4 text-lg font-bold text-gray-700">Inventario Final</h3>
+            {{-- Header con controles --}}
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-700">Inventario Final</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Verifica el inventario físico contra el digital</p>
+                </div>
+                @if($cierre->inventario_final)
+                <div class="flex flex-wrap items-center gap-2">
+                    {{-- Filtro stock --}}
+                    <div class="flex items-center gap-1 text-xs">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="ocultarCero" onchange="filtrarInventario()"
+                                class="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600">
+                            <span class="font-medium text-gray-600">Ocultar cantidad 0</span>
+                        </label>
+                    </div>
+                    {{-- Buscador --}}
+                    <input type="text" id="buscadorInv" placeholder="🔍 Buscar producto..."
+                        oninput="filtrarInventario()"
+                        class="px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 w-44"/>
+                    {{-- Vista --}}
+                    <div class="flex overflow-hidden text-xs border border-gray-300 rounded-lg">
+                        <button onclick="cambiarVista('tabla')" id="btnTabla"
+                            class="px-3 py-1.5 bg-indigo-600 text-white font-semibold transition">
+                            Tabla
+                        </button>
+                        <button onclick="cambiarVista('verificacion')" id="btnVerif"
+                            class="px-3 py-1.5 bg-white text-gray-600 font-semibold transition hover:bg-gray-50">
+                            ✓ Verificación
+                        </button>
+                    </div>
+                </div>
+                @endif
+            </div>
 
             @if($cierre->inventario_final)
-                <table class="w-full text-sm border border-collapse">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-4 py-2 border">Producto</th>
-                            <th class="px-4 py-2 border">Cantidad</th>
-                            <th class="px-4 py-2 border">Lote</th>
-                            <th class="px-4 py-2 border">Caducidad</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($cierre->inventario_final as $producto)
+                @php
+                    // Agrupar por nombre de producto y sumar cantidades
+                    $invAgrupado = collect($cierre->inventario_final)
+                        ->groupBy('nombre')
+                        ->map(function($items, $nombre) {
+                            return [
+                                'nombre'   => $nombre,
+                                'total'    => $items->sum('cantidad'),
+                                'lotes'    => $items->filter(fn($i) => ($i['cantidad'] ?? 0) > 0)
+                                                    ->map(fn($i) => [
+                                                        'lote'     => $i['lote'] ?? 'N/D',
+                                                        'caduca'   => $i['fecha_caducidad'] ?? 'N/D',
+                                                        'cantidad' => $i['cantidad'],
+                                                    ])->values(),
+                            ];
+                        })
+                        ->sortBy('nombre')
+                        ->values();
+
+                    $totalUnidades = $invAgrupado->sum('total');
+                    $productosConStock = $invAgrupado->where('total', '>', 0)->count();
+                    $productosSinStock = $invAgrupado->where('total', 0)->count();
+                @endphp
+
+                {{-- Stats rápidos --}}
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="px-3 py-2 text-center border border-indigo-200 rounded-lg bg-indigo-50">
+                        <div class="text-xl font-bold text-indigo-700">{{ $totalUnidades }}</div>
+                        <div class="text-xs text-indigo-600">Unidades totales</div>
+                    </div>
+                    <div class="px-3 py-2 text-center border border-green-200 rounded-lg bg-green-50">
+                        <div class="text-xl font-bold text-green-700">{{ $productosConStock }}</div>
+                        <div class="text-xs text-green-600">Productos con stock</div>
+                    </div>
+                    <div class="px-3 py-2 text-center border border-gray-200 rounded-lg bg-gray-50">
+                        <div class="text-xl font-bold text-gray-500">{{ $productosSinStock }}</div>
+                        <div class="text-xs text-gray-500">Sin stock (0)</div>
+                    </div>
+                </div>
+
+                {{-- VISTA TABLA --}}
+                <div id="vistaTabla">
+                    <table class="w-full text-sm border border-collapse" id="tablaInv">
+                        <thead class="bg-gray-100">
                             <tr>
-                                <td class="px-4 py-2 border">{{ $producto['nombre'] }}</td>
-                                <td class="px-4 py-2 border">{{ $producto['cantidad'] }}</td>
-                                <td class="px-4 py-2 border">{{ $producto['lote'] ?? 'N/D' }}</td>
-                                <td class="px-4 py-2 border">{{ $producto['fecha_caducidad'] ?? 'N/D' }}</td>
+                                <th class="px-4 py-2 text-left border">Producto</th>
+                                <th class="px-4 py-2 text-center border">Total</th>
+                                <th class="px-4 py-2 text-left border">Detalle por lote</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach($invAgrupado as $prod)
+                            <tr class="fila-inv hover:bg-gray-50 {{ $prod['total'] == 0 ? 'fila-cero opacity-40' : '' }}"
+                                data-nombre="{{ strtolower($prod['nombre']) }}">
+                                <td class="px-4 py-2.5 border font-medium text-gray-900">
+                                    {{ $prod['nombre'] }}
+                                </td>
+                                <td class="px-4 py-2.5 border text-center">
+                                    <span class="inline-flex items-center justify-center w-10 h-10 text-base font-bold rounded-full
+                                        {{ $prod['total'] > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-400' }}">
+                                        {{ $prod['total'] }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-2.5 border">
+                                    @if($prod['lotes']->count() > 0)
+                                        <div class="flex flex-wrap gap-1.5">
+                                            @foreach($prod['lotes'] as $lote)
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-50 border border-blue-200 rounded-full text-blue-800">
+                                                    <span class="font-mono font-semibold">{{ $lote['lote'] }}</span>
+                                                    <span class="text-blue-500">·</span>
+                                                    <span>{{ $lote['cantidad'] }} uds</span>
+                                                    <span class="text-blue-400">· cad {{ $lote['caduca'] }}</span>
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <span class="text-xs text-gray-400">Sin lotes con stock</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                    <div id="sinResultados" class="hidden py-8 text-sm text-center text-gray-400">Sin productos que coincidan.</div>
+                </div>
+
+                {{-- VISTA VERIFICACIÓN (checklist físico vs digital) --}}
+                <div id="vistaVerificacion" class="hidden">
+                    <div class="p-3 mb-3 text-xs border rounded-lg bg-amber-50 border-amber-200 text-amber-800">
+                        💡 <strong>Modo verificación:</strong> Ingresa la cantidad física contada y el sistema compara contra el digital. Verde = correcto · Rojo = diferencia.
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm border border-collapse" id="tablaVerif">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-4 py-2 text-left border">Producto</th>
+                                    <th class="w-24 px-4 py-2 text-center border">Digital</th>
+                                    <th class="w-32 px-4 py-2 text-center border">Físico (contar)</th>
+                                    <th class="px-4 py-2 text-center border w-28">Diferencia</th>
+                                    <th class="w-20 px-4 py-2 text-center border">✓</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($invAgrupado->where('total', '>', 0) as $prod)
+                                <tr class="fila-verif hover:bg-gray-50" data-nombre="{{ strtolower($prod['nombre']) }}">
+                                    <td class="px-4 py-2 font-medium text-gray-900 border">{{ $prod['nombre'] }}</td>
+                                    <td class="px-4 py-2 text-center border">
+                                        <span class="font-bold text-indigo-700">{{ $prod['total'] }}</span>
+                                    </td>
+                                    <td class="px-4 py-2 text-center border">
+                                        <input type="number" min="0"
+                                            data-digital="{{ $prod['total'] }}"
+                                            oninput="calcularDiff(this)"
+                                            class="w-20 px-2 py-1 text-sm font-semibold text-center border border-gray-300 rounded-lg outline-none input-fisico focus:ring-2 focus:ring-indigo-400"
+                                            placeholder="0"/>
+                                    </td>
+                                    <td class="px-4 py-2 text-center border td-diff">
+                                        <span class="text-xs text-gray-300">—</span>
+                                    </td>
+                                    <td class="px-4 py-2 text-center border td-check">
+                                        <span class="text-gray-300">○</span>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Resumen verificación --}}
+                    <div id="resumenVerif" class="hidden p-4 mt-4 border-2 rounded-xl">
+                        <div class="mb-2 text-base font-bold">📊 Resultado de verificación</div>
+                        <div class="grid grid-cols-3 gap-3 text-sm text-center">
+                            <div class="p-2 border border-green-200 rounded-lg bg-green-50">
+                                <div class="text-lg font-bold text-green-700" id="resOk">0</div>
+                                <div class="text-xs text-green-600">Correctos</div>
+                            </div>
+                            <div class="p-2 border border-red-200 rounded-lg bg-red-50">
+                                <div class="text-lg font-bold text-red-700" id="resDiff">0</div>
+                                <div class="text-xs text-red-600">Con diferencia</div>
+                            </div>
+                            <div class="p-2 border border-gray-200 rounded-lg bg-gray-50">
+                                <div class="text-lg font-bold text-gray-500" id="resPend">0</div>
+                                <div class="text-xs text-gray-500">Sin verificar</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             @else
                 <p class="text-gray-500">Sin inventario final registrado.</p>
             @endif
         </div>
+
+        <script>
+        // ── Vista tabla / verificación ───────────────────────────────
+        function cambiarVista(vista) {
+            document.getElementById('vistaTabla').classList.toggle('hidden', vista !== 'tabla');
+            document.getElementById('vistaVerificacion').classList.toggle('hidden', vista !== 'verificacion');
+            document.getElementById('btnTabla').className  = vista === 'tabla'
+                ? 'px-3 py-1.5 bg-indigo-600 text-white font-semibold transition'
+                : 'px-3 py-1.5 bg-white text-gray-600 font-semibold transition hover:bg-gray-50';
+            document.getElementById('btnVerif').className  = vista === 'verificacion'
+                ? 'px-3 py-1.5 bg-indigo-600 text-white font-semibold transition'
+                : 'px-3 py-1.5 bg-white text-gray-600 font-semibold transition hover:bg-gray-50';
+        }
+
+        // ── Filtrar inventario ───────────────────────────────────────
+        function filtrarInventario() {
+            const q = (document.getElementById('buscadorInv')?.value || '').toLowerCase();
+            const ocultarCero = document.getElementById('ocultarCero')?.checked;
+            let visibles = 0;
+
+            document.querySelectorAll('.fila-inv').forEach(fila => {
+                const nombre = fila.dataset.nombre || '';
+                const esCero = fila.classList.contains('fila-cero');
+                const matchQ = !q || nombre.includes(q);
+                const matchCero = !ocultarCero || !esCero;
+                const show = matchQ && matchCero;
+                fila.classList.toggle('hidden', !show);
+                if (show) visibles++;
+            });
+
+            document.querySelectorAll('.fila-verif').forEach(fila => {
+                const nombre = fila.dataset.nombre || '';
+                fila.classList.toggle('hidden', q && !nombre.includes(q));
+            });
+
+            document.getElementById('sinResultados')?.classList.toggle('hidden', visibles > 0);
+        }
+
+        // ── Calcular diferencia en modo verificación ─────────────────
+        function calcularDiff(input) {
+            const digital = parseInt(input.dataset.digital || '0');
+            const fisico  = parseInt(input.value || '');
+            const row     = input.closest('tr');
+            const tdDiff  = row.querySelector('.td-diff');
+            const tdCheck = row.querySelector('.td-check');
+
+            if (input.value === '' || isNaN(fisico)) {
+                tdDiff.innerHTML  = '<span class="text-xs text-gray-300">—</span>';
+                tdCheck.innerHTML = '<span class="text-gray-300">○</span>';
+                row.classList.remove('bg-green-50', 'bg-red-50');
+            } else {
+                const diff = fisico - digital;
+                if (diff === 0) {
+                    tdDiff.innerHTML  = '<span class="font-bold text-green-600">✓ 0</span>';
+                    tdCheck.innerHTML = '<span class="text-lg text-green-500">✅</span>';
+                    row.classList.add('bg-green-50');
+                    row.classList.remove('bg-red-50');
+                } else {
+                    const signo = diff > 0 ? '+' : '';
+                    tdDiff.innerHTML  = `<span class="font-bold text-red-600">${signo}${diff}</span>`;
+                    tdCheck.innerHTML = '<span class="text-lg text-red-500">❌</span>';
+                    row.classList.add('bg-red-50');
+                    row.classList.remove('bg-green-50');
+                }
+            }
+            actualizarResumen();
+        }
+
+        function actualizarResumen() {
+            const inputs = document.querySelectorAll('.input-fisico');
+            let ok = 0, diff = 0, pend = 0;
+            inputs.forEach(inp => {
+                if (inp.value === '' || isNaN(parseInt(inp.value))) { pend++; return; }
+                const d = parseInt(inp.value) - parseInt(inp.dataset.digital);
+                d === 0 ? ok++ : diff++;
+            });
+            const total = inputs.length;
+            if (total === 0) return;
+            document.getElementById('resOk').textContent   = ok;
+            document.getElementById('resDiff').textContent = diff;
+            document.getElementById('resPend').textContent = pend;
+            const res = document.getElementById('resumenVerif');
+            res.classList.remove('hidden');
+            res.className = `mt-4 p-4 rounded-xl border-2 ${diff > 0 ? 'border-red-300 bg-red-50' : (pend > 0 ? 'border-amber-300 bg-amber-50' : 'border-green-300 bg-green-50')}`;
+        }
+        </script>
 
         {{-- ✅ CAMBIOS ACTUALIZADOS --}}
         @if($cierre->cambios && count($cierre->cambios) > 0)
@@ -624,12 +871,12 @@
             <div class="p-6 space-y-4 bg-white rounded-lg shadow">
                 <h3 class="text-lg font-bold text-gray-700">Finalizar Cierre de Ruta</h3>
 
-                <div class="p-4 text-sm rounded bg-blue-50 border border-blue-200 space-y-2">
+                <div class="p-4 space-y-2 text-sm border border-blue-200 rounded bg-blue-50">
                     <div class="flex items-center justify-between">
                         <span class="font-semibold text-blue-800">Total cobrado hoy:</span>
                         <span class="text-lg font-bold text-blue-900">${{ number_format($totalCobradoCierre, 2) }}</span>
                     </div>
-                    <div class="border-t border-blue-200 pt-2 space-y-1">
+                    <div class="pt-2 space-y-1 border-t border-blue-200">
                         <div class="flex justify-between text-blue-700">
                             <span>Efectivo (entregar físicamente):</span>
                             <span class="font-semibold">${{ number_format($efectivoEsperadoHoy, 2) }}</span>
@@ -647,7 +894,7 @@
                         </div>
                         @endif
                     </div>
-                    <p class="text-xs text-blue-600 pt-1">*El campo de abajo es solo para capturar el efectivo físico entregado.</p>
+                    <p class="pt-1 text-xs text-blue-600">*El campo de abajo es solo para capturar el efectivo físico entregado.</p>
                 </div>
 
                 <form method="POST" action="{{ route('cierres.update', $cierre) }}" onsubmit="return validarEfectivo()">

@@ -61,12 +61,12 @@
                                 {{-- Chips de categoría --}}
                                 <div class="flex flex-wrap gap-2 mb-3">
                                     <button type="button" data-cat=""
-                                        class="cat-chip px-3 py-1 text-xs font-semibold rounded-full border border-gray-300 bg-gray-100 text-gray-700 hover:bg-indigo-100 transition active-chip">
+                                        class="px-3 py-1 text-xs font-semibold text-gray-700 transition bg-gray-100 border border-gray-300 rounded-full cat-chip hover:bg-indigo-100 active-chip">
                                         Todas
                                     </button>
                                     @foreach($categorias as $cat)
                                         <button type="button" data-cat="{{ $cat->id }}" data-nombre="{{ strtolower($cat->nombre) }}"
-                                            class="cat-chip px-3 py-1 text-xs font-semibold rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-indigo-100 transition">
+                                            class="px-3 py-1 text-xs font-semibold text-gray-600 transition bg-white border border-gray-200 rounded-full cat-chip hover:bg-indigo-100">
                                             {{ $cat->nombre }}
                                         </button>
                                     @endforeach
@@ -84,7 +84,7 @@
 
                                 {{-- Lista de resultados --}}
                                 <div id="producto-lista"
-                                    class="max-h-52 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100 bg-white shadow-sm">
+                                    class="overflow-y-auto bg-white border border-gray-200 divide-y divide-gray-100 rounded-lg shadow-sm max-h-52">
                                     @foreach($productos as $producto)
                                         <button type="button"
                                             data-id="{{ $producto->id }}"
@@ -102,12 +102,12 @@
                                 </div>
 
                                 {{-- Producto seleccionado --}}
-                                <div id="producto-seleccionado" class="hidden mt-2 flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                <div id="producto-seleccionado" class="flex items-center hidden gap-2 px-3 py-2 mt-2 border border-indigo-200 rounded-lg bg-indigo-50">
                                     <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                     </svg>
-                                    <span id="producto-seleccionado-nombre" class="text-sm font-semibold text-indigo-800 flex-1"></span>
-                                    <button type="button" id="producto-limpiar" class="text-indigo-400 hover:text-indigo-600 transition">
+                                    <span id="producto-seleccionado-nombre" class="flex-1 text-sm font-semibold text-indigo-800"></span>
+                                    <button type="button" id="producto-limpiar" class="text-indigo-400 transition hover:text-indigo-600">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                         </svg>
@@ -283,17 +283,13 @@
 
     <script>
     // ── Meses de caducidad por categoría ─────────────────────────────
+    const MESES_CADUCIDAD_ID = {
+        @foreach($categorias as $cat)@if($cat->meses_caducidad)'{{ $cat->id }}': {{ $cat->meses_caducidad }},@endif
+        @endforeach
+    };
     const MESES_CADUCIDAD = {
-        'dulce chico': 3,
-        'comodin':     3,
-        'dulces':      3,
-        'gourmet':     2,
-        'botanas':     1,
-        'enchilados':  2,
-        'enchiladero': 2,
-        'frituras':    1,
-        'pulpas':      5,
-        'regionales':  3,
+        @foreach($categorias as $cat)@if($cat->meses_caducidad)'{{ strtolower($cat->nombre) }}': {{ $cat->meses_caducidad }},@endif
+        @endforeach
     };
 
     // ── Helpers de fecha ──────────────────────────────────────────────
@@ -324,14 +320,15 @@
     // ── Autocompletar caducidad según categoría seleccionada ─────────
     let categoriaActivaNombre = '';
 
-    function aplicarCaducidadPorCategoria(nombreCat, forzar = false) {
-        const key    = (nombreCat || '').toLowerCase().trim();
-        const meses  = MESES_CADUCIDAD[key] ?? null;
+    function aplicarCaducidadPorCategoria(nombreCat, forzar = false, catId = '') {
+        // Prioridad: por ID (más preciso) → por nombre (fallback)
+        const key   = (nombreCat || '').toLowerCase().trim();
+        const meses = (catId && MESES_CADUCIDAD_ID[catId]) ? MESES_CADUCIDAD_ID[catId]
+                    : (MESES_CADUCIDAD[key] ?? null);
         const cadInput = document.getElementById('fecha_caducidad');
 
         if (meses && cadInput && (forzar || !cadInput.value)) {
             cadInput.value = sumarMeses(meses);
-            // Disparar el evento change para que se actualice el preview
             cadInput.dispatchEvent(new Event('change'));
         }
     }
@@ -403,7 +400,7 @@
             categoriaActivaNombre = chip.dataset.nombre || '';
             filtrar();
             // Autocompletar caducidad — siempre al cambiar categoría
-            aplicarCaducidadPorCategoria(categoriaActivaNombre, true);
+            aplicarCaducidadPorCategoria(categoriaActivaNombre, true, chip.dataset.cat);
         });
     });
 

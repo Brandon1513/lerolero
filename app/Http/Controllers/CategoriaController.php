@@ -38,7 +38,8 @@ class CategoriaController extends Controller
         ]);
 
         Categoria::create([
-            'nombre' => $request->nombre,
+            'nombre'           => $request->nombre,
+            'meses_caducidad'  => $request->filled('meses_caducidad') ? (int)$request->meses_caducidad : null,
         ]);
 
         return redirect()->route('categorias.index')->with('success', 'Categoría creada correctamente.');
@@ -56,7 +57,8 @@ class CategoriaController extends Controller
         ]);
 
         $categoria->update([
-            'nombre' => $request->nombre,
+            'nombre'          => $request->nombre,
+            'meses_caducidad' => $request->filled('meses_caducidad') ? (int)$request->meses_caducidad : null,
         ]);
 
         return redirect()->route('categorias.index')->with('success', 'Categoría actualizada correctamente.');

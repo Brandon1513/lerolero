@@ -9,5 +9,9 @@ class Categoria extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['nombre', 'activo'];
+    protected $fillable = ['nombre', 'activo', 'meses_caducidad'];
+
+    protected $casts = [
+        'meses_caducidad' => 'integer',
+    ];
 }

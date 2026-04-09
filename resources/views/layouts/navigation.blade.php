@@ -281,6 +281,11 @@
                         </x-responsive-nav-link>
                     @endif 
                     @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
+                        <x-responsive-nav-link :href="route('promociones.index')" :active="request()->routeIs('promociones.index')" >
+                        {{ __('Promociones') }}
+                        </x-responsive-nav-link>
+                    @endif 
+                    @if(Auth::user()->hasRole('administrador') || Auth::user()->hasRole('recursos_humanos'))
                         <x-responsive-nav-link :href="route('producciones.index')" :active="request()->routeIs('producciones.index')" >
                         {{ __('Producciones') }}
                         </x-responsive-nav-link>

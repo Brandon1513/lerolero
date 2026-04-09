@@ -85,24 +85,44 @@ class CierreRutaMovilController extends Controller
                     ])->toArray(),
                 ])->toArray();
 
-                // 3) Ventas del día
-                $ventas = Venta::where('vendedor_id', $vendedor->id)
-                    ->whereDate('fecha', $hoy)
-                    ->get();
+                // 3) Ventas a incluir en este cierre
+                // ✅ Incluye ventas de HOY + ventas sin cierre del día anterior
+                // (el vendedor puede haber hecho ventas la noche anterior antes de cerrar ruta)
+                $ultimoCierre = CierreRuta::where('vendedor_id', $vendedor->id)
+                    ->where('estatus', '!=', 'pendiente') // solo cierres ya procesados
+                    ->latest('id')
+                    ->first();
 
+                $ventasQuery = Venta::where('vendedor_id', $vendedor->id);
+
+                if ($ultimoCierre) {
+                    // Tomar ventas desde después del último cierre procesado hasta ahora
+                    $ventasQuery->where('created_at', '>', $ultimoCierre->created_at);
+                } else {
+                    // Sin cierres previos — solo las de hoy
+                    $ventasQuery->whereDate('fecha', $hoy);
+                }
+
+                $ventas = $ventasQuery->get();
                 $total = (float) $ventas->sum('total');
 
                 // Buscar si ya existe un cierre anterior del mismo día
                 $cierreAnterior = CierreRuta::where('vendedor_id', $vendedor->id)
                     ->whereDate('fecha', $hoy)
-                    ->where('id', '!=', 0) // cualquier cierre previo
+                    ->where('id', '!=', 0)
                     ->latest('id')
                     ->first();
+
+                // ✅ Fecha desde: el día después del último cierre, o la fecha de la venta más antigua
+                $fechaDesde = $ultimoCierre
+                    ? Carbon::parse($ultimoCierre->created_at)->addSecond()->toDateTimeString()
+                    : ($ventas->min('created_at') ?? $hoy);
 
                 // 4) Crear cierre
                 $cierre = CierreRuta::create([
                     'vendedor_id'        => $vendedor->id,
                     'fecha'              => $hoy,
+                    'fecha_desde'        => $fechaDesde,
                     'total_ventas'       => $total,
                     'inventario_inicial' => [],
                     'inventario_final'   => $inventarioFinal,

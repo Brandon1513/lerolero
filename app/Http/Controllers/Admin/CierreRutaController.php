@@ -104,9 +104,15 @@ class CierreRutaController extends Controller
         $fecha = Carbon::parse($cierre->fecha)->toDateString();
         $vendedorId = $cierre->vendedor_id;
 
+        // ✅ Si el cierre tiene fecha_desde, incluir ventas del período completo
+        // (cubre ventas hechas la noche anterior antes del cierre del día siguiente)
         $ventasDia = Venta::with('cliente')
             ->where('vendedor_id', $vendedorId)
-            ->whereDate('fecha', $fecha)
+            ->when($cierre->fecha_desde,
+                fn($q) => $q->where('created_at', '>=', $cierre->fecha_desde)
+                             ->whereDate('fecha', '<=', $fecha),
+                fn($q) => $q->whereDate('fecha', $fecha)
+            )
             ->get();
 
         $ventasDiaIds = $ventasDia->pluck('id')->all();

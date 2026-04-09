@@ -115,7 +115,18 @@
                     {{-- Mapa --}}
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1.5">Ubicación en mapa</label>
-                        <div id="map" class="w-full overflow-hidden border border-gray-300 rounded-lg" style="height: 280px;"></div>
+
+                        {{-- Buscador de Google Places --}}
+                        <div class="relative mb-2">
+                            <svg class="absolute z-10 w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input id="pac-input" type="text" placeholder="Buscar dirección, colonia, municipio..."
+                                class="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"/>
+                        </div>
+
+                        <div id="map" class="w-full overflow-hidden border border-gray-300 rounded-lg" style="height: 300px;"></div>
+
                         <button type="button" id="btnUbicacionActual"
                             class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -186,50 +197,153 @@
 </x-app-layout>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+// ── Google Maps con Places Autocomplete ─────────────────────────────
+let map, marker, autocomplete;
+
+function initMap() {
     const initialLat = parseFloat(document.getElementById('latitud').value) || 20.6765;
     const initialLng = parseFloat(document.getElementById('longitud').value) || -103.3472;
+    const initialPos = { lat: initialLat, lng: initialLng };
 
-    const map = L.map('map').setView([initialLat, initialLng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    let marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
-
-    function setCoords(lat, lng) {
-        document.getElementById('latitud').value = parseFloat(lat).toFixed(7);
-        document.getElementById('longitud').value = parseFloat(lng).toFixed(7);
-    }
-
-    marker.on('dragend', e => {
-        const { lat, lng } = e.target.getLatLng();
-        setCoords(lat, lng);
+    // Crear mapa
+    map = new google.maps.Map(document.getElementById('map'), {
+        center: initialPos,
+        zoom: 16,
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true,
+        mapTypeId: 'roadmap',
     });
 
-    map.on('click', e => {
-        marker.setLatLng(e.latlng);
-        setCoords(e.latlng.lat, e.latlng.lng);
+    // Marcador arrastrable
+    marker = new google.maps.Marker({
+        position: initialPos,
+        map: map,
+        draggable: true,
+        animation: google.maps.Animation.DROP,
+        title: 'Arrastra para ajustar la ubicación',
     });
 
-    if (typeof L.Control.Geocoder !== 'undefined') {
-        L.Control.geocoder({ defaultMarkGeocode: false })
-            .on('markgeocode', e => {
-                const latlng = e.geocode.center;
-                marker.setLatLng(latlng);
-                map.setView(latlng, 17);
-                setCoords(latlng.lat, latlng.lng);
-            }).addTo(map);
-    }
+    // Al arrastrar el marcador
+    marker.addListener('dragend', () => {
+        const pos = marker.getPosition();
+        setCoords(pos.lat(), pos.lng());
+        reverseGeocode(pos.lat(), pos.lng());
+    });
 
-    document.getElementById('btnUbicacionActual').addEventListener('click', () => {
-        if (!navigator.geolocation) return alert('Geolocalización no disponible.');
-        navigator.geolocation.getCurrentPosition(pos => {
-            const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
-            marker.setLatLng(latlng);
-            map.setView(latlng, 17);
-            setCoords(latlng.lat, latlng.lng);
-        }, () => alert('No se pudo obtener tu ubicación.'));
+    // Al hacer click en el mapa
+    map.addListener('click', (e) => {
+        marker.setPosition(e.latLng);
+        setCoords(e.latLng.lat(), e.latLng.lng());
+        reverseGeocode(e.latLng.lat(), e.latLng.lng());
+    });
+
+    // ── Places Autocomplete ──────────────────────────────────────────
+    const input = document.getElementById('pac-input');
+    autocomplete = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: 'mx' },  // Solo México
+        fields: ['geometry', 'address_components', 'formatted_address'],
+        types: ['geocode', 'establishment'],
+    });
+
+    autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry || !place.geometry.location) return;
+
+        const loc = place.geometry.location;
+        map.setCenter(loc);
+        map.setZoom(18);
+        marker.setPosition(loc);
+        setCoords(loc.lat(), loc.lng());
+
+        // Autocompletar campos de dirección
+        fillAddressFields(place.address_components);
+    });
+}
+
+function setCoords(lat, lng) {
+    document.getElementById('latitud').value = parseFloat(lat).toFixed(7);
+    document.getElementById('longitud').value = parseFloat(lng).toFixed(7);
+}
+
+function fillAddressFields(components) {
+    if (!components) return;
+    const get = (type) => components.find(c => c.types.includes(type))?.long_name || '';
+
+    const route         = get('route');
+    const streetNum     = get('street_number');
+    const colonia       = get('sublocality_level_1') || get('neighborhood') || get('sublocality');
+    const municipio     = get('locality') || get('administrative_area_level_2');
+    const estado        = get('administrative_area_level_1');
+    const cp            = get('postal_code');
+
+    if (route && !document.querySelector('[name=calle]').value)
+        document.querySelector('[name=calle]').value = route + (streetNum ? ' #' + streetNum : '');
+    if (colonia && !document.querySelector('[name=colonia]').value)
+        document.querySelector('[name=colonia]').value = colonia;
+    if (cp && !document.querySelector('[name=codigo_postal]').value)
+        document.querySelector('[name=codigo_postal]').value = cp;
+    if (municipio && !document.querySelector('[name=municipio]').value)
+        document.querySelector('[name=municipio]').value = municipio;
+    if (estado && !document.querySelector('[name=estado]').value)
+        document.querySelector('[name=estado]').value = estado;
+}
+
+function reverseGeocode(lat, lng) {
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng }, region: 'MX' }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+            fillAddressFields(results[0].address_components);
+            // Actualizar el input de búsqueda con la dirección encontrada
+            document.getElementById('pac-input').placeholder = results[0].formatted_address;
+        }
+    });
+}
+
+// ── Botón ubicación actual ───────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btnUbicacionActual');
+    btn.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            alert('Geolocalización no disponible en este navegador.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg> Obteniendo ubicación...`;
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const loc = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+                map.setCenter(loc);
+                map.setZoom(18);
+                marker.setPosition(loc);
+                setCoords(pos.coords.latitude, pos.coords.longitude);
+                reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+
+                btn.disabled = false;
+                btn.innerHTML = `✅ Ubicación obtenida (precisión: ${Math.round(pos.coords.accuracy)}m)`;
+                setTimeout(() => {
+                    btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Usar mi ubicación actual`;
+                }, 4000);
+            },
+            (err) => {
+                btn.disabled = false;
+                btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Usar mi ubicación actual`;
+                const msgs = {
+                    1: 'Permiso denegado. Activa la ubicación en tu navegador.',
+                    2: 'No se pudo obtener tu ubicación. Verifica el GPS.',
+                    3: 'Tiempo agotado. Intenta de nuevo.',
+                };
+                alert(msgs[err.code] || 'No se pudo obtener la ubicación.');
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
     });
 });
 </script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB9z1pLnHycp5Vi2hU8RAsYlpzbfKHH4TE&libraries=places&callback=initMap&language=es&region=MX" async defer></script>
