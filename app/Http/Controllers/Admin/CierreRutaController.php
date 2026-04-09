@@ -108,29 +108,27 @@ class CierreRutaController extends Controller
         // Caso A: cierre tiene fecha_desde explícito (nuevo comportamiento)
         // Caso B: fallback inteligente — buscar el cierre anterior procesado y tomar
         //         ventas desde después de ese cierre (cubre ventas de la noche anterior)
-        if ($cierre->fecha_desde) {
+        // Siempre buscar el cierre anterior (necesario para pagos también)
+        $cierreAnteriorProcesado = CierreRuta::where('vendedor_id', $vendedorId)
+            ->where('id', '<', $cierre->id)
+            ->where('estatus', '!=', 'pendiente')
+            ->latest('id')
+            ->first();
+
+        // Determinar fecha de inicio del período
+        $fechaInicioPeriodo = $cierre->fecha_desde
+            ?? ($cierreAnteriorProcesado ? $cierreAnteriorProcesado->updated_at : null);
+
+        if ($fechaInicioPeriodo) {
             $ventasDia = Venta::with('cliente')
                 ->where('vendedor_id', $vendedorId)
-                ->where('created_at', '>=', $cierre->fecha_desde)
+                ->where('created_at', '>=', $fechaInicioPeriodo)
                 ->whereDate('fecha', '<=', $fecha)
                 ->get();
         } else {
-            // Buscar el cierre procesado anterior a éste
-            $cierreAnteriorProcesado = CierreRuta::where('vendedor_id', $vendedorId)
-                ->where('id', '<', $cierre->id)
-                ->where('estatus', '!=', 'pendiente')
-                ->latest('id')
-                ->first();
-
             $ventasDia = Venta::with('cliente')
                 ->where('vendedor_id', $vendedorId)
-                ->when($cierreAnteriorProcesado,
-                    // Tomar ventas desde después del cierre anterior
-                    fn($q) => $q->where('created_at', '>', $cierreAnteriorProcesado->updated_at)
-                                 ->whereDate('fecha', '<=', $fecha),
-                    // Sin cierre anterior — solo las del día
-                    fn($q) => $q->whereDate('fecha', $fecha)
-                )
+                ->whereDate('fecha', $fecha)
                 ->get();
         }
 
@@ -144,9 +142,14 @@ class CierreRutaController extends Controller
             ->whereIn('estado', ['credito', 'parcial'])
             ->sum('saldo_pendiente');
 
+        // ✅ Pagos del período completo del cierre (mismo rango que ventas)
         $pagosHoy = PagoVenta::with('venta.cliente')
             ->where('cobrador_id', $vendedorId)
-            ->whereDate('created_at', $fecha)
+            ->when($fechaInicioPeriodo,
+                fn($q) => $q->where('created_at', '>=', $fechaInicioPeriodo)
+                             ->whereDate('created_at', '<=', $fecha),
+                fn($q) => $q->whereDate('created_at', $fecha)
+            )
             ->get();
 
         $totalCobradoHoy = (float) $pagosHoy->sum('monto');
