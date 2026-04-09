@@ -22,13 +22,16 @@ class CierreRuta extends Model
         'cierre_anterior_id',
         'total_ventas',
         'vendedor_id',
-        'fecha'
+        'fecha',
+        'fecha_desde',
     ];
+
 
     protected $casts = [
         'inventario_inicial' => 'array',
         'inventario_final'   => 'array',
         'cambios'            => 'array',
+        'fecha_desde'        => 'datetime',
     ];
 
     public function vendedor()
