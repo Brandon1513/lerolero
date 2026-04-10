@@ -8,6 +8,7 @@ use App\Models\CierreRuta;
 use App\Models\Inventario;
 use App\Models\RechazoTemporal;
 use App\Models\Venta;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
