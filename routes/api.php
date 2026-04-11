@@ -128,6 +128,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Estado de venta 
 
     Route::get('/estado-venta', [\App\Http\Controllers\Api\EstadoVentaController::class, 'estado']);
+    Route::get('/productos-catalogo', [\App\Http\Controllers\Api\ProductoCatalogoController::class, 'index']);
     
     // 📊 VISITAS A CLIENTES
     Route::prefix('visitas')->group(function () {
