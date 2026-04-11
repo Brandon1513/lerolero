@@ -105,6 +105,7 @@ class CierreRutaController extends Controller
         $vendedorId = $cierre->vendedor_id;
 
         // ✅ Lógica de período del cierre
+<<<<<<< Updated upstream
         //
         // Caso A — Reapertura (cierre_anterior_id != null):
         //   El admin liberó un cierre por error y se volvió a cerrar.
@@ -115,6 +116,11 @@ class CierreRutaController extends Controller
         //   Toma ventas desde el created_at del cierre anterior hasta
         //   el created_at de este cierre + 1 min de buffer.
         //   Esto captura ventas nocturnas del día anterior.
+=======
+        // Cada cierre toma las ventas creadas DESPUÉS del cierre anterior
+        // y ANTES O IGUAL al created_at de este cierre.
+        // Esto es exacto y maneja tanto reaperturas como ventas nocturnas.
+>>>>>>> Stashed changes
 
         $cierreAnteriorInmediato = CierreRuta::where('vendedor_id', $vendedorId)
             ->where('id', '<', $cierre->id)
@@ -123,6 +129,7 @@ class CierreRutaController extends Controller
 
         $cierreAnteriorProcesado = $cierreAnteriorInmediato;
 
+<<<<<<< Updated upstream
         // ¿Es reapertura? Tiene cierre_anterior_id apuntando al cierre liberado
         $esReapertura = !is_null($cierre->cierre_anterior_id);
 
@@ -143,7 +150,18 @@ class CierreRutaController extends Controller
             // Cierre normal: desde el cierre anterior hasta este
             $desde = $cierreAnteriorInmediato ? $cierreAnteriorInmediato->created_at : null;
             $hasta = Carbon::parse($cierre->created_at)->addMinutes(1);
+=======
+        if ($cierreAnteriorInmediato) {
+            // Límite inferior: created_at del cierre anterior (excluido)
+            $desde = $cierreAnteriorInmediato->created_at;
+        } else {
+            $desde = null;
+>>>>>>> Stashed changes
         }
+
+        // Límite superior: created_at de este cierre (incluido) + buffer de 1 minuto
+        // para capturar ventas que se hicieron mientras el vendedor enviaba el cierre
+        $hasta = Carbon::parse($cierre->created_at)->addMinutes(1);
 
         if ($desde) {
             $ventasDia = Venta::with('cliente')
