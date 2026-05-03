@@ -127,11 +127,9 @@ class CierreRutaController extends Controller
         $esReapertura = !is_null($cierre->cierre_anterior_id);
 
         if ($esReapertura) {
-            // Heredar el rango del cierre que fue liberado
             $cierreLiberado = CierreRuta::find($cierre->cierre_anterior_id);
             $cierreBaseId   = $cierreLiberado?->id ?? $cierre->id;
 
-            // El cierre liberado a su vez, ¿cuál era su cierre anterior?
             $antesDelLiberado = CierreRuta::where('vendedor_id', $vendedorId)
                 ->where('id', '<', $cierreBaseId)
                 ->latest('id')
@@ -140,7 +138,6 @@ class CierreRutaController extends Controller
             $desde = $antesDelLiberado ? $antesDelLiberado->created_at : null;
             $hasta = Carbon::parse($cierre->created_at)->addMinutes(1);
         } else {
-            // Cierre normal: desde el cierre anterior hasta este
             $desde = $cierreAnteriorInmediato ? $cierreAnteriorInmediato->created_at : null;
             $hasta = Carbon::parse($cierre->created_at)->addMinutes(1);
         }
@@ -168,7 +165,6 @@ class CierreRutaController extends Controller
             ->whereIn('estado', ['credito', 'parcial'])
             ->sum('saldo_pendiente');
 
-        // ✅ Pagos del mismo período que ventas (mismo rango created_at)
         $pagosHoy = PagoVenta::with('venta.cliente')
             ->where('cobrador_id', $vendedorId)
             ->when($desde,
@@ -257,13 +253,29 @@ class CierreRutaController extends Controller
             ],
         ];
 
+        // ✅ Enriquecer inventario_final con categoría para agrupar en la vista
+        $inventarioFinalConCategoria = collect();
+        if ($cierre->inventario_final) {
+            $productoIds = collect($cierre->inventario_final)->pluck('producto_id')->unique()->filter();
+            $categoriasPorProducto = Producto::whereIn('id', $productoIds)
+                ->with('categoria:id,nombre')
+                ->get(['id', 'categoria_id'])
+                ->mapWithKeys(fn($p) => [$p->id => $p->categoria?->nombre ?? 'Sin categoría']);
+
+            $inventarioFinalConCategoria = collect($cierre->inventario_final)
+                ->map(fn($item) => array_merge($item, [
+                    'categoria' => $categoriasPorProducto[$item['producto_id']] ?? 'Sin categoría',
+                ]));
+        }
+
         return view('cierres.show', compact(
             'cierre',
             'resumen',
             'clientesPendientesDia',
             'cobranzaAnteriorPorCliente',
             'pagosHoyDetalle',
-            'saldoPendienteAcumulado'
+            'saldoPendienteAcumulado',
+            'inventarioFinalConCategoria'
         ));
     }
 
@@ -289,7 +301,6 @@ class CierreRutaController extends Controller
             ->where('metodo', 'efectivo')
             ->sum('monto');
 
-        // 1. Inventario final
         $inventarioFinal = Inventario::where('almacen_id', $almacenVendedor->id)
             ->get()
             ->map(function ($item) {
@@ -302,7 +313,6 @@ class CierreRutaController extends Controller
                 ];
             })->toArray();
 
-        // 2. Inventario inicial
         $trasladoInicial = Traslado::where('almacen_destino_id', $almacenVendedor->id)
             ->whereDate('fecha', Carbon::parse($cierre->fecha)->toDateString())
             ->latest()
@@ -323,9 +333,8 @@ class CierreRutaController extends Controller
                 })->toArray();
         }
 
-        // 3. Procesar cambios con info completa (cliente + sustituciones)
         $rechazos = RechazoTemporal::where('vendedor_id', $cierre->vendedor_id)
-            ->whereNull('procesado_en') // ✅ solo los no procesados aún
+            ->whereNull('procesado_en')
             ->with(['producto', 'venta.cliente', 'detalles.producto'])
             ->get();
 
@@ -377,11 +386,9 @@ class CierreRutaController extends Controller
                 })->toArray(),
             ];
 
-            // ✅ NO borrar — marcar como procesado para mantener historial en ventas
             $rechazo->update(['procesado_en' => now()]);
         }
 
-        // 4. Traslado de devolución al almacén general
         $traslado = Traslado::create([
             'almacen_origen_id'  => $almacenVendedor->id,
             'almacen_destino_id' => $almacenGeneral->id,
@@ -408,10 +415,8 @@ class CierreRutaController extends Controller
             $inventarioGeneral->save();
         }
 
-        // 5. Vaciar inventario del vendedor
         Inventario::where('almacen_id', $almacenVendedor->id)->delete();
 
-        // 6. Actualizar cierre
         $cierre->update([
             'total_efectivo'     => $request->total_efectivo,
             'observaciones'      => $request->observaciones,
@@ -423,9 +428,6 @@ class CierreRutaController extends Controller
             'traslado_id'        => $traslado->id,
         ]);
 
-        // ✅ NUEVO: Liberar automáticamente al vendedor al cuadrar el cierre
-        // Antes solo se liberaba con el botón manual "Liberar Ventas".
-        // Ahora al cuadrar = cierre completo = vendedor libre para el siguiente día.
         $vendedor = User::find($cierre->vendedor_id);
         if ($vendedor) {
             $vendedor->update([
@@ -436,7 +438,6 @@ class CierreRutaController extends Controller
             ]);
         }
 
-        // 7. Cuadre de efectivo
         $diferencia = (float) $cierre->total_efectivo - (float) $efectivoEsperadoHoy;
         $eps = 0.01;
         if (abs($diferencia) <= $eps) $diferencia = 0;
