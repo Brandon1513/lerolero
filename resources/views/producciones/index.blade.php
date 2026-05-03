@@ -48,7 +48,7 @@
                 <div class="min-w-[160px]">
                     <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Categoría</label>
                     <select name="categoria_id"
-                        class="w-full px-3 py-2 text-sm transition border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                        class="w-full px-3 py-2 text-sm transition bg-white border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                         <option value="">— Todas —</option>
                         @foreach($categorias as $cat)
                             <option value="{{ $cat->id }}" {{ request('categoria_id') == $cat->id ? 'selected' : '' }}>

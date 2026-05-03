@@ -15,7 +15,8 @@ use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\NivelPrecioController;
 use App\Http\Controllers\UnidadMedidaController;
 use App\Http\Controllers\Admin\CierreRutaController;
-use App\Http\Controllers\DashboardController; //  NUEVO
+use App\Http\Controllers\Admin\AyudaController;
+use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -38,87 +39,91 @@ Route::middleware('auth')->group(function () {
 });
 
 // ========================================
+//  AYUDA — rutas públicas (sin auth, ANTES del resource)
+// ========================================
+Route::get('/centro-ayuda', [AyudaController::class, 'publico'])->name('ayuda.publico');
+Route::get('/centro-ayuda/{modulo}/{plataforma?}', [AyudaController::class, 'modulo'])->name('ayuda.modulo');
+
+// ========================================
 //  RUTAS DE ADMINISTRADOR
 // ========================================
 Route::middleware(['auth', 'role:administrador'])->group(function () {
-    
+
     //  CLIENTES
     Route::resource('clientes', ClienteController::class);
     Route::patch('/clientes/{cliente}/toggle', [ClienteController::class, 'toggleActivo'])->name('clientes.toggle');
-    
+
     //  PRODUCTOS
     Route::resource('productos', ProductoController::class)->parameters([
         'productos' => 'producto'
     ]);
     Route::patch('productos/{producto}/toggle', [ProductoController::class, 'toggle'])->name('productos.toggle');
-    
+
     // INVENTARIO
     Route::resource('inventarios', InventarioController::class);
     Route::get('/inventario', [InventarioController::class, 'index'])->name('inventario.index');
     Route::get('/inventario/almacen/{id}', [InventarioController::class, 'porAlmacen'])->name('inventario.por_almacen');
-    
+
     // VENDEDORES
     Route::resource('vendedores', VendedorController::class)->parameters([
         'vendedores' => 'vendedor'
     ]);
     Route::patch('vendedores/{vendedor}/toggle', [VendedorController::class, 'toggleEstado'])->name('vendedores.toggle');
-    
+
     //  CATEGORÍAS
     Route::resource('categorias', CategoriaController::class);
     Route::patch('/categorias/{categoria}/toggle', [CategoriaController::class, 'toggle'])->name('categorias.toggle');
-    
+
     // UNIDADES DE MEDIDA
     Route::resource('unidades', UnidadMedidaController::class)->parameters([
         'unidades' => 'unidad'
     ]);
     Route::patch('unidades/{unidad}/toggle', [UnidadMedidaController::class, 'toggle'])->name('unidades.toggle');
-    
+
     // NIVELES DE PRECIO
     Route::resource('niveles-precio', NivelPrecioController::class);
     Route::patch('niveles-precio/{niveles_precio}/toggle', [NivelPrecioController::class, 'toggle'])
-    ->name('niveles-precio.toggle');
+        ->name('niveles-precio.toggle');
 
-    
     //  ALMACENES
     Route::resource('almacenes', AlmacenController::class)
-    ->parameters(['almacenes' => 'almacen']);
-
-    // Esta línea queda igual
+        ->parameters(['almacenes' => 'almacen']);
     Route::patch('/almacenes/{almacen}/toggle', [AlmacenController::class, 'toggleActivo'])
         ->name('almacenes.toggle');
-    
+
     //  TRASLADOS
     Route::resource('traslados', App\Http\Controllers\TrasladoController::class);
     Route::get('/traslados/{traslado}', [App\Http\Controllers\TrasladoController::class, 'show'])->name('traslados.show');
     Route::post('/traslados/{traslado}/firma', [App\Http\Controllers\TrasladoController::class, 'guardarFirma'])->name('traslados.firma');
     Route::get('/traslados/lotes/{almacen}', [App\Http\Controllers\TrasladoController::class, 'lotesPorAlmacen']);
-    
+
     //  VENTAS
     Route::resource('ventas', VentaController::class)->only(['index', 'create', 'store']);
     Route::get('/ventas/{venta}', [VentaController::class, 'show'])->name('ventas.show');
     Route::get('/panel-ventas', [VentaController::class, 'panel'])->name('ventas.panel');
-    
+
     //  PROMOCIONES
     Route::resource('promociones', PromocionController::class)->parameters([
         'promociones' => 'promocion'
     ]);
     Route::patch('/promociones/{promocion}/toggle', [PromocionController::class, 'toggle'])->name('promociones.toggle');
-    
+
     //  PRODUCCIONES
     Route::resource('producciones', App\Http\Controllers\ProduccionController::class)
-    ->only(['index', 'create', 'store', 'show', 'destroy'])
-    ->parameters(['producciones' => 'produccion']);
+        ->only(['index', 'create', 'store', 'show', 'destroy'])
+        ->parameters(['producciones' => 'produccion']);
 
-    
     //  CIERRES DE RUTA
     Route::prefix('admin')->group(function () {
         Route::resource('cierres', App\Http\Controllers\Admin\CierreRutaController::class)->only(['index', 'show', 'update']);
     });
     Route::post('/cierres/{cierre}/liberar-ventas', [CierreRutaController::class, 'liberarVentas'])
-  ->name('cierres.liberar');
+        ->name('cierres.liberar');
 
-    
-    //  ADMIN DASHBOARD (legacy - puedes removerlo si usas el nuevo)
+    //  AYUDA — CRUD solo para admin
+    Route::resource('ayuda', AyudaController::class)->except(['show']);
+
+    //  ADMIN DASHBOARD
     Route::get('/admin', [AdminController::class, 'index'])->name('admin.dashboard');
 });
 
