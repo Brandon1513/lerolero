@@ -4,7 +4,33 @@
             <div class="flex">
                 <!-- Logo -->
                 <div class="flex items-center shrink-0">
-                    <a href="{{ route('dashboard') }}">
+                    @php
+                        // Para empleado_interno: redirigir al primer módulo que tenga permiso de ver
+                        if (Auth::check() && Auth::user()->hasRole('empleado_interno') && !Auth::user()->hasRole('administrador')) {
+                            $modulos = [
+                                'producciones.ver'   => 'producciones.index',
+                                'inventario.ver'     => 'inventario.index',
+                                'traslados.ver'      => 'traslados.index',
+                                'ventas.ver'         => 'ventas.index',
+                                'clientes.ver'       => 'clientes.index',
+                                'productos.ver'      => 'productos.index',
+                                'categorias.ver'     => 'categorias.index',
+                                'niveles_precio.ver' => 'niveles-precio.index',
+                                'almacenes.ver'      => 'almacenes.index',
+                                'cierres.ver'        => 'cierres.index',
+                            ];
+                            $logoHref = '#';
+                            foreach ($modulos as $permiso => $ruta) {
+                                if (Auth::user()->can($permiso)) {
+                                    $logoHref = route($ruta);
+                                    break;
+                                }
+                            }
+                        } else {
+                            $logoHref = route('dashboard');
+                        }
+                    @endphp
+                    <a href="{{ $logoHref }}">
                         <x-application-logo class="block w-auto text-gray-800 fill-current h-9" />
                     </a>
                 </div>

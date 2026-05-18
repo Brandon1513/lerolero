@@ -19,15 +19,11 @@ use App\Http\Controllers\Admin\AyudaController;
 use App\Http\Controllers\Admin\PermisoUsuarioController;
 use App\Http\Controllers\DashboardController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
-
 // ========================================
 //  DASHBOARD
 // ========================================
 Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'role:administrador'])
     ->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
@@ -275,5 +271,10 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
 // ========================================
 Route::get('/descargar-app', [App\Http\Controllers\AppDownloadController::class, 'apk'])
     ->name('app.download');
+
+// ========================================
+//  RUTA PRINCIPAL (home público)
+// ========================================
+Route::get('/', [PublicController::class, 'home'])->name('public.home');
 
 require __DIR__.'/auth.php';
