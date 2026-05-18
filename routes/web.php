@@ -69,10 +69,8 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::get('/vendedores/{usuario}/permisos', [PermisoUsuarioController::class, 'edit'])->name('vendedores.permisos.edit');
     Route::put('/vendedores/{usuario}/permisos', [PermisoUsuarioController::class, 'update'])->name('vendedores.permisos.update');
 
-    // CIERRES DE RUTA
-    Route::prefix('admin')->group(function () {
-        Route::resource('cierres', App\Http\Controllers\Admin\CierreRutaController::class)->only(['index', 'show', 'update']);
-    });
+    // CIERRES — cuadrar y liberar solo admin
+    Route::patch('/admin/cierres/{cierre}', [CierreRutaController::class, 'update'])->name('cierres.update');
     Route::post('/cierres/{cierre}/liberar-ventas', [CierreRutaController::class, 'liberarVentas'])->name('cierres.liberar');
 
     // AYUDA — CRUD
@@ -265,7 +263,7 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
         ->middleware('permiso:traslados.eliminar')->name('traslados.destroy');
     Route::get('/traslados/lotes/{almacen}', [App\Http\Controllers\TrasladoController::class, 'lotesPorAlmacen']);
 
-    // ── CIERRES (ver) ─────────────────────────────────────────────
+    // ── CIERRES ──────────────────────────────────────────────────
     Route::get('/cierres', [App\Http\Controllers\Admin\CierreRutaController::class, 'index'])
         ->middleware('permiso:cierres.ver')->name('cierres.index');
     Route::get('/cierres/{cierre}', [App\Http\Controllers\Admin\CierreRutaController::class, 'show'])
