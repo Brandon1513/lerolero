@@ -8,14 +8,12 @@
             <a href="{{ route('vendedores.create') }}"
                 class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-indigo-700 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                Agregar Vendedor
+                Agregar Usuario
             </a>
         </div>
     </x-slot>
 
     <div class="py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
-
-
 
         {{-- Filtros --}}
         <div class="p-4 mb-4 bg-white border border-gray-200 shadow-sm rounded-xl">
@@ -24,16 +22,17 @@
                     <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Buscar</label>
                     <div class="relative">
                         <svg class="absolute w-4 h-4 text-gray-400 -translate-y-1/2 left-3 top-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z"/></svg>
-                        <input type="text" name="nombre" value="{{ request('nombre') }}" placeholder="Nombre del vendedor..."
+                        <input type="text" name="nombre" value="{{ request('nombre') }}" placeholder="Nombre del usuario..."
                             class="w-full py-2 pr-3 text-sm transition border border-gray-300 rounded-lg outline-none pl-9 focus:ring-2 focus:ring-indigo-500"/>
                     </div>
                 </div>
-                <div class="min-w-[140px]">
+                <div class="min-w-[160px]">
                     <label class="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Rol</label>
                     <select name="rol" class="w-full px-3 py-2 text-sm transition bg-white border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="">Todos</option>
-                        <option value="vendedor"      {{ request('rol') === 'vendedor'      ? 'selected' : '' }}>Vendedor</option>
-                        <option value="administrador" {{ request('rol') === 'administrador' ? 'selected' : '' }}>Administrador</option>
+                        <option value="vendedor"         {{ request('rol') === 'vendedor'         ? 'selected' : '' }}>Vendedor</option>
+                        <option value="administrador"    {{ request('rol') === 'administrador'    ? 'selected' : '' }}>Administrador</option>
+                        <option value="empleado_interno" {{ request('rol') === 'empleado_interno' ? 'selected' : '' }}>Empleado Interno</option>
                     </select>
                 </div>
                 <div class="min-w-[130px]">
@@ -152,8 +151,9 @@
                                     <div class="flex flex-wrap gap-1">
                                         @foreach($vendedor->getRoleNames() as $rol)
                                             <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full
-                                                {{ $rol === 'administrador' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800' }}">
-                                                {{ ucfirst($rol) }}
+                                                {{ $rol === 'administrador' ? 'bg-purple-100 text-purple-800' :
+                                                   ($rol === 'empleado_interno' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800') }}">
+                                                {{ ucfirst(str_replace('_', ' ', $rol)) }}
                                             </span>
                                         @endforeach
                                     </div>
@@ -180,6 +180,12 @@
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         </a>
 
+                                        {{-- 🔐 Permisos --}}
+                                        <a href="{{ route('vendedores.permisos.edit', $vendedor) }}" title="Gestionar permisos"
+                                            class="inline-flex items-center justify-center w-8 h-8 transition-colors border rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                                        </a>
+
                                         {{-- Toggle activo --}}
                                         @if(!$esYo)
                                             <form action="{{ route('vendedores.toggle', $vendedor) }}?{{ http_build_query($query) }}" method="POST" class="inline">
@@ -203,7 +209,7 @@
                                         {{-- Eliminar --}}
                                         @if(!$esYo && !$esAdmin && ($vendedor->puede_eliminar ?? true))
                                             <form action="{{ route('vendedores.destroy', $vendedor) }}" method="POST"
-                                                onsubmit="return confirm('¿Eliminar al vendedor {{ addslashes($vendedor->name) }}?')">
+                                                onsubmit="return confirm('¿Eliminar al usuario {{ addslashes($vendedor->name) }}?')">
                                                 @csrf @method('DELETE')
                                                 <button type="submit" title="Eliminar"
                                                     class="inline-flex items-center justify-center w-8 h-8 text-red-600 transition-colors border border-red-200 rounded-lg bg-red-50 hover:bg-red-100">

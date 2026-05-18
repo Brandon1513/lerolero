@@ -5,6 +5,7 @@
                 <h2 class="text-2xl font-bold tracking-tight text-gray-900">Almacenes</h2>
                 <p class="text-sm text-gray-500 mt-0.5">Gestión de almacenes generales y de vendedores</p>
             </div>
+            @can('almacenes.crear')
             <a href="{{ route('almacenes.create') }}"
                 class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-indigo-700 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -12,11 +13,11 @@
                 </svg>
                 Crear Almacén
             </a>
+            @endcan
         </div>
     </x-slot>
 
     <div class="max-w-6xl py-8 mx-auto sm:px-6 lg:px-8">
-
 
         {{-- Filtros --}}
         <div class="p-4 mb-4 bg-white border border-gray-200 shadow-sm rounded-xl">
@@ -109,7 +110,9 @@
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Ubicación</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Usuario</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-center text-gray-500 uppercase">Estado</th>
+                            @can('almacenes.editar')
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-center text-gray-500 uppercase">Acciones</th>
+                            @endcan
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -138,9 +141,7 @@
                                 </td>
 
                                 {{-- Ubicación --}}
-                                <td class="px-5 py-3.5 text-gray-600 text-sm">
-                                    {{ $almacen->ubicacion ?? '—' }}
-                                </td>
+                                <td class="px-5 py-3.5 text-gray-600 text-sm">{{ $almacen->ubicacion ?? '—' }}</td>
 
                                 {{-- Usuario --}}
                                 <td class="px-5 py-3.5">
@@ -170,6 +171,7 @@
                                 </td>
 
                                 {{-- Acciones --}}
+                                @can('almacenes.editar')
                                 <td class="px-5 py-3.5">
                                     <div class="flex items-center justify-center gap-1.5">
                                         <a href="{{ route('almacenes.edit', $almacen) }}" title="Editar"
@@ -190,6 +192,7 @@
                                         </form>
                                     </div>
                                 </td>
+                                @endcan
                             </tr>
                         @empty
                             <tr>

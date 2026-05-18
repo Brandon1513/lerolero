@@ -9,26 +9,26 @@
                     </a>
                 </div>
 
-                <!-- Navigation Links -->
                 @if (Auth::check())
+                @php $user = Auth::user(); @endphp
                 <div class="hidden space-x-8 sm:flex sm:items-center sm:ms-6">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                        {{ __('Inicio') }}
-                    </x-nav-link>
 
-                    @if(Auth::user()->hasRole('administrador'))
+                    {{-- Inicio solo para admin --}}
+                    @if($user->hasRole('administrador'))
+                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+                            {{ __('Inicio') }}
+                        </x-nav-link>
+                    @endif
 
-                        {{-- Administración --}}
+                    {{-- ── ADMINISTRADOR: menús fijos ── --}}
+                    @if($user->hasRole('administrador'))
+
                         <div class="relative">
                             <x-dropdown align="left">
                                 <x-slot name="trigger">
                                     <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 transition duration-150 ease-in-out bg-transparent border border-transparent rounded-md hover:text-gray-300 focus:outline-none">
                                         <div>{{ __('Administración') }}</div>
-                                        <div class="ms-1">
-                                            <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                            </svg>
-                                        </div>
+                                        <div class="ms-1"><svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
                                     </button>
                                 </x-slot>
                                 <x-slot name="content">
@@ -44,17 +44,12 @@
                             </x-dropdown>
                         </div>
 
-                        {{-- Almacenes --}}
                         <div class="relative">
                             <x-dropdown align="left">
                                 <x-slot name="trigger">
                                     <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 transition duration-150 ease-in-out bg-transparent border border-transparent rounded-md hover:text-gray-300 focus:outline-none">
                                         <div>{{ __('Almacenes') }}</div>
-                                        <div class="ms-1">
-                                            <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                            </svg>
-                                        </div>
+                                        <div class="ms-1"><svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
                                     </button>
                                 </x-slot>
                                 <x-slot name="content">
@@ -65,17 +60,12 @@
                             </x-dropdown>
                         </div>
 
-                        {{-- Ventas --}}
                         <div class="relative">
                             <x-dropdown align="left">
                                 <x-slot name="trigger">
                                     <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 transition duration-150 ease-in-out bg-transparent border border-transparent rounded-md hover:text-gray-300 focus:outline-none">
                                         <div>{{ __('Ventas') }}</div>
-                                        <div class="ms-1">
-                                            <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                            </svg>
-                                        </div>
+                                        <div class="ms-1"><svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
                                     </button>
                                 </x-slot>
                                 <x-slot name="content">
@@ -86,12 +76,90 @@
                             </x-dropdown>
                         </div>
 
-                        {{-- Ayuda --}}
                         <x-nav-link :href="route('ayuda.publico')" :active="request()->routeIs('ayuda.*')">
-                             {{ __('Ayuda') }}
+                            📚 {{ __('Ayuda') }}
                         </x-nav-link>
 
-                    @endif {{-- fin administrador --}}
+                    @elseif($user->hasRole('empleado_interno'))
+                    {{-- ── EMPLEADO INTERNO: dinámico por permisos ──
+                         Todas las rutas son las mismas del admin.
+                         El middleware 'permiso' controla el acceso.
+                         El admin activa/desactiva desde la vista de permisos. --}}
+
+                        @if($user->can('producciones.ver'))
+                            <x-nav-link :href="route('producciones.index')" :active="request()->routeIs('producciones.*')">
+                                🏭 {{ __('Producciones') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('inventario.ver'))
+                            <x-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.*')">
+                                📦 {{ __('Inventario') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('traslados.ver'))
+                            <x-nav-link :href="route('traslados.index')" :active="request()->routeIs('traslados.*')">
+                                🚚 {{ __('Traslados') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('ventas.ver'))
+                            <x-nav-link :href="route('ventas.index')" :active="request()->routeIs('ventas.*')">
+                                🧾 {{ __('Ventas') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('clientes.ver'))
+                            <x-nav-link :href="route('clientes.index')" :active="request()->routeIs('clientes.*')">
+                                👥 {{ __('Clientes') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('productos.ver'))
+                            <x-nav-link :href="route('productos.index')" :active="request()->routeIs('productos.*')">
+                                🍬 {{ __('Productos') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('categorias.ver'))
+                            <x-nav-link :href="route('categorias.index')" :active="request()->routeIs('categorias.*')">
+                                🏷️ {{ __('Categorías') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('niveles_precio.ver'))
+                            <x-nav-link :href="route('niveles-precio.index')" :active="request()->routeIs('niveles-precio.*')">
+                                💰 {{ __('Niveles precio') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('unidades.ver'))
+                            <x-nav-link :href="route('unidades.index')" :active="request()->routeIs('unidades.*')">
+                                📏 {{ __('Unidades') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('almacenes.ver'))
+                            <x-nav-link :href="route('almacenes.index')" :active="request()->routeIs('almacenes.*')">
+                                🏗️ {{ __('Almacenes') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('promociones.ver'))
+                            <x-nav-link :href="route('promociones.index')" :active="request()->routeIs('promociones.*')">
+                                🔥 {{ __('Promociones') }}
+                            </x-nav-link>
+                        @endif
+
+                        @if($user->can('cierres.ver'))
+                            <x-nav-link :href="route('cierres.index')" :active="request()->routeIs('cierres.*')">
+                                📋 {{ __('Cierres') }}
+                            </x-nav-link>
+                        @endif
+
+                    @endif {{-- fin roles --}}
+
                 </div>
             </div>
 
@@ -101,11 +169,7 @@
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out bg-white border border-transparent rounded-md hover:text-gray-700 focus:outline-none">
                             <div>{{ Auth::user()->name }}</div>
-                            <div class="ms-1">
-                                <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
+                            <div class="ms-1"><svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
                         </button>
                     </x-slot>
                     <x-slot name="content">
@@ -141,36 +205,75 @@
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                {{ __('Dashboard') }}
-            </x-responsive-nav-link>
+            @if(Auth::check() && Auth::user()->hasRole('administrador'))
+                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">{{ __('Dashboard') }}</x-responsive-nav-link>
+            @endif
         </div>
 
         @if (Auth::check())
+        @php $user = Auth::user(); @endphp
         <div class="pt-4 pb-1 border-t border-gray-200">
             <div class="px-4">
-                <div class="text-base font-medium">{{ Auth::user()->name }}</div>
-                <div class="text-sm font-medium">{{ Auth::user()->email }}</div>
+                <div class="text-base font-medium">{{ $user->name }}</div>
+                <div class="text-sm font-medium">{{ $user->email }}</div>
             </div>
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">{{ __('Perfil') }}</x-responsive-nav-link>
 
-                @if(Auth::user()->hasRole('administrador'))
-                    <x-responsive-nav-link :href="route('clientes.index')" :active="request()->routeIs('clientes.index')">{{ __('Clientes') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('vendedores.index')" :active="request()->routeIs('vendedores.index')">{{ __('Vendedores') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('niveles-precio.index')" :active="request()->routeIs('niveles-precio.index')">{{ __('Nivel de precio') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('unidades.index')" :active="request()->routeIs('unidades.index')">{{ __('Unidades') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('productos.index')" :active="request()->routeIs('productos.index')">{{ __('Productos') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('categorias.index')" :active="request()->routeIs('categorias.index')">{{ __('Categorias') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.index')">{{ __('Inventarios') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('almacenes.index')" :active="request()->routeIs('almacenes.index')">{{ __('Almacenes') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('traslados.index')" :active="request()->routeIs('traslados.index')">{{ __('Traslados') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('ventas.index')" :active="request()->routeIs('ventas.index')">{{ __('Ventas') }}</x-responsive-nav-link>
+                @if($user->hasRole('administrador'))
+                    <x-responsive-nav-link :href="route('clientes.index')" :active="request()->routeIs('clientes.*')">{{ __('Clientes') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('vendedores.index')" :active="request()->routeIs('vendedores.*')">{{ __('Vendedores') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('niveles-precio.index')" :active="request()->routeIs('niveles-precio.*')">{{ __('Nivel de precio') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('unidades.index')" :active="request()->routeIs('unidades.*')">{{ __('Unidades') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('productos.index')" :active="request()->routeIs('productos.*')">{{ __('Productos') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('categorias.index')" :active="request()->routeIs('categorias.*')">{{ __('Categorias') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.*')">{{ __('Inventario') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('almacenes.index')" :active="request()->routeIs('almacenes.*')">{{ __('Almacenes') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('traslados.index')" :active="request()->routeIs('traslados.*')">{{ __('Traslados') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('ventas.index')" :active="request()->routeIs('ventas.*')">{{ __('Ventas') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('ventas.panel')" :active="request()->routeIs('ventas.panel')">{{ __('Panel de ventas') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('cierres.index')" :active="request()->routeIs('cierres.index')">{{ __('Cierres de Venta') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('promociones.index')" :active="request()->routeIs('promociones.index')">{{ __('Promociones') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('producciones.index')" :active="request()->routeIs('producciones.index')">{{ __('Producciones') }}</x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('ayuda.publico')" :active="request()->routeIs('ayuda.*')"> {{ __('Ayuda') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('cierres.index')" :active="request()->routeIs('cierres.*')">{{ __('Cierres de Venta') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('promociones.index')" :active="request()->routeIs('promociones.*')">{{ __('Promociones') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('producciones.index')" :active="request()->routeIs('producciones.*')">{{ __('Producciones') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('ayuda.publico')" :active="request()->routeIs('ayuda.*')">📚 {{ __('Ayuda') }}</x-responsive-nav-link>
+
+                @elseif($user->hasRole('empleado_interno'))
+                    @if($user->can('producciones.ver'))
+                        <x-responsive-nav-link :href="route('producciones.index')" :active="request()->routeIs('producciones.*')">🏭 {{ __('Producciones') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('inventario.ver'))
+                        <x-responsive-nav-link :href="route('inventario.index')" :active="request()->routeIs('inventario.*')">📦 {{ __('Inventario') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('traslados.ver'))
+                        <x-responsive-nav-link :href="route('traslados.index')" :active="request()->routeIs('traslados.*')">🚚 {{ __('Traslados') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('ventas.ver'))
+                        <x-responsive-nav-link :href="route('ventas.index')" :active="request()->routeIs('ventas.*')">🧾 {{ __('Ventas') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('clientes.ver'))
+                        <x-responsive-nav-link :href="route('clientes.index')" :active="request()->routeIs('clientes.*')">👥 {{ __('Clientes') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('productos.ver'))
+                        <x-responsive-nav-link :href="route('productos.index')" :active="request()->routeIs('productos.*')">🍬 {{ __('Productos') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('categorias.ver'))
+                        <x-responsive-nav-link :href="route('categorias.index')" :active="request()->routeIs('categorias.*')">🏷️ {{ __('Categorías') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('niveles_precio.ver'))
+                        <x-responsive-nav-link :href="route('niveles-precio.index')" :active="request()->routeIs('niveles-precio.*')">💰 {{ __('Niveles precio') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('unidades.ver'))
+                        <x-responsive-nav-link :href="route('unidades.index')" :active="request()->routeIs('unidades.*')">📏 {{ __('Unidades') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('almacenes.ver'))
+                        <x-responsive-nav-link :href="route('almacenes.index')" :active="request()->routeIs('almacenes.*')">🏗️ {{ __('Almacenes') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('promociones.ver'))
+                        <x-responsive-nav-link :href="route('promociones.index')" :active="request()->routeIs('promociones.*')">🔥 {{ __('Promociones') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('cierres.ver'))
+                        <x-responsive-nav-link :href="route('cierres.index')" :active="request()->routeIs('cierres.*')">📋 {{ __('Cierres') }}</x-responsive-nav-link>
+                    @endif
                 @endif
 
                 <form method="POST" action="{{ route('logout') }}">

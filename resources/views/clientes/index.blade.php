@@ -5,11 +5,13 @@
                 <h2 class="text-2xl font-bold tracking-tight text-gray-900">Clientes</h2>
                 <p class="text-sm text-gray-500 mt-0.5">Directorio de clientes y sus asignaciones</p>
             </div>
+            @can('clientes.crear')
             <a href="{{ route('clientes.create') }}"
                 class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-indigo-700 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 Agregar Cliente
             </a>
+            @endcan
         </div>
     </x-slot>
 
@@ -114,7 +116,9 @@
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Nivel</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-left text-gray-500 uppercase">Días visita</th>
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-center text-gray-500 uppercase">Estado</th>
+                            @canany(['clientes.editar','clientes.eliminar'])
                             <th class="px-5 py-3 text-xs font-semibold tracking-wide text-center text-gray-500 uppercase">Acciones</th>
+                            @endcanany
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -151,9 +155,7 @@
                                 </td>
 
                                 {{-- Teléfono --}}
-                                <td class="px-5 py-3.5 text-sm text-gray-600">
-                                    {{ $cliente->telefono ?: '—' }}
-                                </td>
+                                <td class="px-5 py-3.5 text-sm text-gray-600">{{ $cliente->telefono ?: '—' }}</td>
 
                                 {{-- Asignado a --}}
                                 <td class="px-5 py-3.5">
@@ -165,18 +167,14 @@
                                             <span class="text-sm text-gray-700">{{ $cliente->asignadoA->name }}</span>
                                         </div>
                                     @else
-                                        <span class="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                                            Sin asignar
-                                        </span>
+                                        <span class="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Sin asignar</span>
                                     @endif
                                 </td>
 
                                 {{-- Nivel --}}
                                 <td class="px-5 py-3.5">
                                     @if($cliente->nivelPrecio)
-                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-                                            {{ $cliente->nivelPrecio->nombre }}
-                                        </span>
+                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">{{ $cliente->nivelPrecio->nombre }}</span>
                                     @else
                                         <span class="text-xs text-gray-400">—</span>
                                     @endif
@@ -216,9 +214,11 @@
                                 </td>
 
                                 {{-- Acciones --}}
+                                @canany(['clientes.editar','clientes.eliminar'])
                                 <td class="px-5 py-3.5">
                                     <div class="flex items-center justify-center gap-1.5">
 
+                                        @can('clientes.editar')
                                         {{-- Editar --}}
                                         <a href="{{ route('clientes.edit', $cliente) }}" title="Editar"
                                             class="inline-flex items-center justify-center w-8 h-8 transition-colors border rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border-amber-200">
@@ -238,7 +238,9 @@
                                                 @endif
                                             </button>
                                         </form>
+                                        @endcan
 
+                                        @can('clientes.eliminar')
                                         {{-- Eliminar --}}
                                         @if($puedeEliminar)
                                             <form action="{{ route('clientes.destroy', $cliente) }}" method="POST"
@@ -255,8 +257,11 @@
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                             </button>
                                         @endif
+                                        @endcan
+
                                     </div>
                                 </td>
+                                @endcanany
                             </tr>
                         @empty
                             <tr>
