@@ -184,6 +184,12 @@
                             </x-nav-link>
                         @endif
 
+                        @if($user->can('ayuda.ver'))
+                            <x-nav-link :href="route('ayuda.publico')" :active="request()->routeIs('ayuda.*')">
+                                📚 {{ __('Ayuda') }}
+                            </x-nav-link>
+                        @endif
+
                     @endif {{-- fin roles --}}
 
                 </div>
@@ -299,6 +305,9 @@
                     @endif
                     @if($user->can('cierres.ver'))
                         <x-responsive-nav-link :href="route('cierres.index')" :active="request()->routeIs('cierres.*')">📋 {{ __('Cierres') }}</x-responsive-nav-link>
+                    @endif
+                    @if($user->can('ayuda.ver'))
+                        <x-responsive-nav-link :href="route('ayuda.publico')" :active="request()->routeIs('ayuda.*')">📚 {{ __('Ayuda') }}</x-responsive-nav-link>
                     @endif
                 @endif
 

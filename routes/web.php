@@ -41,7 +41,7 @@ Route::middleware(['auth'])->group(function () {
 // ========================================
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::match(['PUT', 'PATCH'], '/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
@@ -66,7 +66,7 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::put('/vendedores/{usuario}/permisos', [PermisoUsuarioController::class, 'update'])->name('vendedores.permisos.update');
 
     // CIERRES — cuadrar y liberar solo admin
-    Route::patch('/admin/cierres/{cierre}', [CierreRutaController::class, 'update'])->name('cierres.update');
+    Route::match(['PUT', 'PATCH'], '/admin/cierres/{cierre}', [CierreRutaController::class, 'update'])->name('cierres.update');
     Route::post('/cierres/{cierre}/liberar-ventas', [CierreRutaController::class, 'liberarVentas'])->name('cierres.liberar');
 
     // AYUDA — CRUD
@@ -99,7 +99,7 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
         ->middleware('permiso:clientes.ver')->name('clientes.show');
     Route::get('/clientes/{cliente}/edit', [ClienteController::class, 'edit'])
         ->middleware('permiso:clientes.editar')->name('clientes.edit');
-    Route::patch('/clientes/{cliente}', [ClienteController::class, 'update'])
+    Route::match(['PUT', 'PATCH'], '/clientes/{cliente}', [ClienteController::class, 'update'])
         ->middleware('permiso:clientes.editar')->name('clientes.update');
     Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])
         ->middleware('permiso:clientes.eliminar')->name('clientes.destroy');
@@ -117,7 +117,7 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
         ->middleware('permiso:productos.ver')->name('productos.show');
     Route::get('/productos/{producto}/edit', [ProductoController::class, 'edit'])
         ->middleware('permiso:productos.editar')->name('productos.edit');
-    Route::patch('/productos/{producto}', [ProductoController::class, 'update'])
+    Route::match(['PUT', 'PATCH'], '/productos/{producto}', [ProductoController::class, 'update'])
         ->middleware('permiso:productos.editar')->name('productos.update');
     Route::delete('/productos/{producto}', [ProductoController::class, 'destroy'])
         ->middleware('permiso:productos.eliminar')->name('productos.destroy');
@@ -135,7 +135,7 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
         ->middleware('permiso:categorias.ver')->name('categorias.show');
     Route::get('/categorias/{categoria}/edit', [CategoriaController::class, 'edit'])
         ->middleware('permiso:categorias.editar')->name('categorias.edit');
-    Route::patch('/categorias/{categoria}', [CategoriaController::class, 'update'])
+    Route::match(['PUT', 'PATCH'], '/categorias/{categoria}', [CategoriaController::class, 'update'])
         ->middleware('permiso:categorias.editar')->name('categorias.update');
     Route::delete('/categorias/{categoria}', [CategoriaController::class, 'destroy'])
         ->middleware('permiso:categorias.eliminar')->name('categorias.destroy');
@@ -153,7 +153,7 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
         ->middleware('permiso:unidades.ver')->name('unidades.show');
     Route::get('/unidades/{unidad}/edit', [UnidadMedidaController::class, 'edit'])
         ->middleware('permiso:unidades.editar')->name('unidades.edit');
-    Route::patch('/unidades/{unidad}', [UnidadMedidaController::class, 'update'])
+    Route::match(['PUT', 'PATCH'], '/unidades/{unidad}', [UnidadMedidaController::class, 'update'])
         ->middleware('permiso:unidades.editar')->name('unidades.update');
     Route::delete('/unidades/{unidad}', [UnidadMedidaController::class, 'destroy'])
         ->middleware('permiso:unidades.eliminar')->name('unidades.destroy');
@@ -171,7 +171,7 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
         ->middleware('permiso:niveles_precio.ver')->name('niveles-precio.show');
     Route::get('/niveles-precio/{niveles_precio}/edit', [NivelPrecioController::class, 'edit'])
         ->middleware('permiso:niveles_precio.editar')->name('niveles-precio.edit');
-    Route::patch('/niveles-precio/{niveles_precio}', [NivelPrecioController::class, 'update'])
+    Route::match(['PUT', 'PATCH'], '/niveles-precio/{niveles_precio}', [NivelPrecioController::class, 'update'])
         ->middleware('permiso:niveles_precio.editar')->name('niveles-precio.update');
     Route::delete('/niveles-precio/{niveles_precio}', [NivelPrecioController::class, 'destroy'])
         ->middleware('permiso:niveles_precio.eliminar')->name('niveles-precio.destroy');
@@ -189,7 +189,7 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
         ->middleware('permiso:almacenes.ver')->name('almacenes.show');
     Route::get('/almacenes/{almacen}/edit', [AlmacenController::class, 'edit'])
         ->middleware('permiso:almacenes.editar')->name('almacenes.edit');
-    Route::patch('/almacenes/{almacen}', [AlmacenController::class, 'update'])
+    Route::match(['PUT', 'PATCH'], '/almacenes/{almacen}', [AlmacenController::class, 'update'])
         ->middleware('permiso:almacenes.editar')->name('almacenes.update');
     Route::delete('/almacenes/{almacen}', [AlmacenController::class, 'destroy'])
         ->middleware('permiso:almacenes.eliminar')->name('almacenes.destroy');
@@ -219,7 +219,7 @@ Route::middleware(['auth', 'role:administrador|empleado_interno'])->group(functi
         ->middleware('permiso:promociones.ver')->name('promociones.show');
     Route::get('/promociones/{promocion}/edit', [PromocionController::class, 'edit'])
         ->middleware('permiso:promociones.editar')->name('promociones.edit');
-    Route::patch('/promociones/{promocion}', [PromocionController::class, 'update'])
+    Route::match(['PUT', 'PATCH'], '/promociones/{promocion}', [PromocionController::class, 'update'])
         ->middleware('permiso:promociones.editar')->name('promociones.update');
     Route::delete('/promociones/{promocion}', [PromocionController::class, 'destroy'])
         ->middleware('permiso:promociones.eliminar')->name('promociones.destroy');
