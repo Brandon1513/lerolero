@@ -35,6 +35,17 @@ Route::post('/login', [AuthController::class, 'login'])
 // 🔒 RUTAS PROTEGIDAS (auth:sanctum)
 // ============================================
 Route::middleware('auth:sanctum')->group(function () {
+
+    Route::post('/debug-ruta', function (Request $request) {
+        \Log::channel('daily')->info('DEBUG_RUTA', [
+            'vendedor_id' => $request->user()->id,
+            'vendedor'    => $request->user()->name,
+            'evento'      => $request->input('evento'),
+            'datos'       => $request->input('datos'),
+            'timestamp'   => $request->input('timestamp'),
+        ]);
+        return response()->json(['ok' => true]);
+    });
     
     // --------------------------------------------
     // 👤 USUARIO AUTENTICADO
