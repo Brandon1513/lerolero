@@ -19,10 +19,11 @@ class User extends Authenticatable
         'password',
         'activo',
         'ventas_bloqueadas',
-        'ventas_bloqueadas_desde', // fecha desde la cual las ventas están bloqueadas
-        'ventas_bloqueadas_motivo', // motivo del bloqueo de ventas
-        'ventas_bloqueadas_cierre_id', // cierre de ruta asociado al bloqueo de ventas
-
+        'ventas_bloqueadas_desde',
+        'ventas_bloqueadas_motivo',
+        'ventas_bloqueadas_cierre_id',
+        'radio_ubicacion',   // ✅ Radio en metros para validación de ubicación
+        'validar_ubicacion', // ✅ Si false, no se valida ubicación al iniciar venta
     ];
 
     protected $hidden = [
@@ -34,7 +35,6 @@ class User extends Authenticatable
     {
         parent::boot();
 
-        // Este scope filtra automáticamente solo usuarios activos
         static::addGlobalScope('activo', function (Builder $builder) {
             $builder->where('activo', true);
         });
@@ -44,49 +44,44 @@ class User extends Authenticatable
         'email_verified_at'        => 'datetime',
         'ventas_bloqueadas'        => 'boolean',
         'ventas_bloqueadas_desde'  => 'datetime',
+        'validar_ubicacion'        => 'boolean', // ✅
     ];
+
     public function almacen()
     {
         return $this->hasOne(Almacen::class, 'user_id');
     }
+
     public function clientes()
     {
-        return $this->hasMany(Cliente::class, 'asignado_a'); // o el campo que uses
+        return $this->hasMany(Cliente::class, 'asignado_a');
     }
-        /**
-     * Visitas realizadas por el vendedor
-     */
+
     public function visitas()
     {
         return $this->hasMany(VisitaCliente::class);
     }
 
-    /**
-     * Visitas de hoy
-     */
     public function visitasHoy()
     {
         return $this->visitas()->whereDate('fecha_visita', today());
     }
 
-    /**
-     * Estadísticas de visitas del vendedor
-     */
     public function estadisticasVisitas($fechaInicio = null, $fechaFin = null)
     {
         $query = $this->visitas();
-        
+
         if ($fechaInicio && $fechaFin) {
             $query->whereBetween('fecha_visita', [$fechaInicio, $fechaFin]);
         }
-        
+
         $total = $query->count();
         $conVenta = $query->where('realizo_venta', true)->count();
-        
+
         return [
-            'total_visitas' => $total,
-            'con_venta' => $conVenta,
-            'sin_venta' => $total - $conVenta,
+            'total_visitas'   => $total,
+            'con_venta'       => $conVenta,
+            'sin_venta'       => $total - $conVenta,
             'tasa_conversion' => $total > 0 ? round(($conVenta / $total) * 100, 2) : 0,
         ];
     }

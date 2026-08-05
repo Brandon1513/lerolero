@@ -7,7 +7,7 @@
             </a>
             <div>
                 <h2 class="text-2xl font-bold tracking-tight text-gray-900">Nuevo Usuario</h2>
-                <p class="text-sm text-gray-500 mt-0.5">Completa los datos del nuevo usuario</p>
+                <p class="text-sm text-gray-500 mt-0.5">Completa los datos para registrar un nuevo usuario</p>
             </div>
         </div>
     </x-slot>
@@ -56,7 +56,7 @@
                 </div>
                 <div class="p-5 space-y-4">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Contraseña *</label>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Contraseña <span class="text-red-500">*</span></label>
                         <div class="relative">
                             <input type="password" id="password" name="password"
                                 placeholder="Mínimo 8 caracteres" required
@@ -69,7 +69,7 @@
                         @error('password')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Confirmar contraseña *</label>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Confirmar contraseña <span class="text-red-500">*</span></label>
                         <div class="relative">
                             <input type="password" id="password_confirmation" name="password_confirmation" required
                                 class="w-full px-3 py-2 pr-10 text-sm transition border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"/>
@@ -82,25 +82,78 @@
                 </div>
             </div>
 
-            {{-- Roles — cargados desde la BD para que siempre estén actualizados --}}
+            {{-- ✅ CONFIGURACIÓN DE UBICACIÓN --}}
+            <div class="overflow-hidden bg-white border border-gray-200 shadow-sm rounded-xl">
+                <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 bg-gray-50">
+                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <h3 class="text-sm font-semibold text-gray-700">Configuración de ubicación</h3>
+                </div>
+                <div class="p-5 space-y-5">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-700">Validar ubicación al vender</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Si está activado, el vendedor debe estar cerca del cliente para iniciar una venta.</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                            <input type="hidden" name="validar_ubicacion" value="0">
+                            <input type="checkbox" name="validar_ubicacion" value="1" id="toggle_ubicacion"
+                                checked
+                                onchange="toggleRadioField(this.checked)"
+                                class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+
+                    <div id="radio_field">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">
+                            Radio de ubicación: <span id="radio_value" class="text-indigo-600">200 metros</span>
+                        </label>
+                        <input type="range" name="radio_ubicacion" id="radio_slider"
+                            min="50" max="2000" step="50" value="200"
+                            oninput="document.getElementById('radio_value').textContent = this.value + ' metros'; document.getElementById('radio_number').value = this.value"
+                            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"/>
+                        <div class="flex justify-between mt-1 text-xs text-gray-400">
+                            <span>50 m</span>
+                            <span>500 m</span>
+                            <span>1000 m</span>
+                            <span>2000 m</span>
+                        </div>
+                        <input type="number" id="radio_number" name="radio_ubicacion"
+                            min="50" max="2000" value="200"
+                            oninput="document.getElementById('radio_slider').value = this.value; document.getElementById('radio_value').textContent = this.value + ' metros'"
+                            class="mt-2 w-32 px-3 py-1.5 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"/>
+                        <p class="mt-1 text-xs text-gray-400">El vendedor debe estar dentro de este rango para iniciar una venta.</p>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            @foreach([100 => '100m (estricto)', 200 => '200m (recomendado)', 500 => '500m (flexible)', 1000 => '1km (muy flexible)'] as $val => $label)
+                                <button type="button" onclick="setRadio({{ $val }})"
+                                    class="px-3 py-1 text-xs transition-colors border border-gray-200 rounded-full hover:border-indigo-400 hover:text-indigo-600">
+                                    {{ $label }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Roles --}}
             <div class="overflow-hidden bg-white border border-gray-200 shadow-sm rounded-xl">
                 <div class="flex items-center gap-2 px-5 py-4 border-b border-gray-100 bg-gray-50">
                     <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                    <h3 class="text-sm font-semibold text-gray-700">Rol asignado</h3>
+                    <h3 class="text-sm font-semibold text-gray-700">Roles asignados</h3>
                 </div>
                 <div class="p-5">
                     @php
                         $rolesActuales = old('roles', []);
                         $rolesDescripciones = [
-                            'administrador'    => ['desc' => 'Acceso total al sistema',           'color' => 'red',    'icono' => '👑'],
-                            'vendedor'         => ['desc' => 'Gestión de ventas y rutas',          'color' => 'blue',   'icono' => '🧑‍💼'],
-                            'empleado_interno' => ['desc' => 'Crear producciones y traslados',     'color' => 'green',  'icono' => '🏭'],
+                            'administrador'    => ['desc' => 'Acceso total al sistema',        'icono' => '👑'],
+                            'vendedor'         => ['desc' => 'Gestión de ventas y rutas',       'icono' => '🧑‍💼'],
+                            'empleado_interno' => ['desc' => 'Crear producciones y traslados',  'icono' => '🏭'],
                         ];
                     @endphp
                     <div class="flex flex-wrap gap-3">
-                        @foreach(\Spatie\Permission\Models\Role::orderBy('name')->get() as $role)
+                        @foreach($roles as $role)
                             @php
-                                $info = $rolesDescripciones[$role->name] ?? ['desc' => 'Sin descripción', 'color' => 'gray', 'icono' => '👤'];
+                                $info = $rolesDescripciones[$role->name] ?? ['desc' => 'Sin descripción', 'icono' => '👤'];
                                 $checked = in_array($role->name, $rolesActuales);
                             @endphp
                             <label class="flex items-center gap-3 px-4 py-3 border rounded-xl cursor-pointer transition-all
@@ -137,7 +190,7 @@
 <script>
 function handleAdminCheckbox(input) {
     if (input.checked) {
-        const ok = confirm(' Estás a punto de asignar el rol de ADMINISTRADOR. ¿Estás seguro?');
+        const ok = confirm('Estás a punto de asignar el rol de ADMINISTRADOR. ¿Estás seguro?');
         if (!ok) input.checked = false;
     }
 }
@@ -148,5 +201,15 @@ function togglePassword(inputId, btn) {
     input.type = isPass ? 'text' : 'password';
     btn.querySelector('.icon-eye').classList.toggle('hidden', isPass);
     btn.querySelector('.icon-eye-off').classList.toggle('hidden', !isPass);
+}
+function toggleRadioField(checked) {
+    const field = document.getElementById('radio_field');
+    field.classList.toggle('opacity-40', !checked);
+    field.classList.toggle('pointer-events-none', !checked);
+}
+function setRadio(val) {
+    document.getElementById('radio_slider').value = val;
+    document.getElementById('radio_number').value = val;
+    document.getElementById('radio_value').textContent = val + ' metros';
 }
 </script>

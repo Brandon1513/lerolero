@@ -51,8 +51,21 @@ Route::middleware('auth:sanctum')->group(function () {
     // 👤 USUARIO AUTENTICADO
     // --------------------------------------------
     Route::get('/me', function (Request $request) {
-        return $request->user();
-    });
+    $user = $request->user();
+    return response()->json([
+        'id'                          => $user->id,
+        'name'                        => $user->name,
+        'email'                       => $user->email,
+        'activo'                      => $user->activo,
+        'ventas_bloqueadas'           => (bool) $user->ventas_bloqueadas,
+        'ventas_bloqueadas_desde'     => optional($user->ventas_bloqueadas_desde)->toDateTimeString(),
+        'ventas_bloqueadas_motivo'    => $user->ventas_bloqueadas_motivo,
+        'ventas_bloqueadas_cierre_id' => $user->ventas_bloqueadas_cierre_id,
+        // ✅ Configuración de ubicación por vendedor
+        'radio_ubicacion'             => (int) ($user->radio_ubicacion ?? 200),
+        'validar_ubicacion'           => (bool) ($user->validar_ubicacion ?? true),
+    ]);
+});
 
     Route::post('/update-password', function (Request $request) {
         $request->validate([

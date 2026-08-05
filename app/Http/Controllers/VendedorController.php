@@ -47,29 +47,31 @@ class VendedorController extends Controller
 
     public function create()
     {
-        // ✅ Roles desde BD — siempre actualizados automáticamente
         $roles = Role::orderBy('name')->get();
         return view('vendedores.create', compact('roles'));
     }
 
     public function store(Request $request)
     {
-        // ✅ Validar contra roles reales de la BD
         $rolesValidos = Role::pluck('name')->implode(',');
 
         $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'roles'    => 'required|array|min:1',
-            'roles.*'  => 'in:' . $rolesValidos,
+            'name'              => 'required|string|max:255',
+            'email'             => 'required|email|unique:users',
+            'password'          => 'required|string|min:8|confirmed',
+            'roles'             => 'required|array|min:1',
+            'roles.*'           => 'in:' . $rolesValidos,
+            'radio_ubicacion'   => 'nullable|integer|min:50|max:5000',
+            'validar_ubicacion' => 'nullable|boolean',
         ]);
 
         $vendedor = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
-            'activo'   => true,
+            'name'              => $request->name,
+            'email'             => $request->email,
+            'password'          => Hash::make($request->password),
+            'activo'            => true,
+            'radio_ubicacion'   => $request->input('radio_ubicacion', 200),
+            'validar_ubicacion' => $request->boolean('validar_ubicacion', true),
         ]);
 
         $vendedor->syncRoles($request->roles);
@@ -90,11 +92,14 @@ class VendedorController extends Controller
         $vendedor = User::withoutGlobalScope('activo')->findOrFail($vendedor);
 
         $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email,' . $vendedor->id,
-            'password' => 'nullable|string|min:8|confirmed',
-            'roles'    => 'required|array',
-            'roles.*'  => 'exists:roles,name',
+            'name'              => 'required|string|max:255',
+            'email'             => 'required|email|unique:users,email,' . $vendedor->id,
+            'password'          => 'nullable|string|min:8|confirmed',
+            'roles'             => 'required|array',
+            'roles.*'           => 'exists:roles,name',
+            // ✅ Nuevos campos de ubicación
+            'radio_ubicacion'   => 'nullable|integer|min:50|max:5000',
+            'validar_ubicacion' => 'nullable|boolean',
         ]);
 
         $data = $request->only('name', 'email');
@@ -102,6 +107,10 @@ class VendedorController extends Controller
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         }
+
+        // ✅ Guardar configuración de ubicación
+        $data['radio_ubicacion']   = $request->input('radio_ubicacion', 200);
+        $data['validar_ubicacion'] = $request->boolean('validar_ubicacion', true);
 
         $vendedor->update($data);
         $vendedor->syncRoles($request->roles);
